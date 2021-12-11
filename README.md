@@ -70,8 +70,8 @@ Navigate to a source code folder.
 * Name your pull request in the following way:
   * for report:
   ```
-  <Фамилия Имя>. Отчет. <Полное название задачи>.
-  Нестеров Александр. Отчет. Сумма элементов вектора.
+  <Фамилия Имя>. Отчет по задаче <Номер задачи>. Вариант <Номер варианта>. <Полное название задачи>.
+  Нестеров Александр. Отчет по задаче 1. Вариант 123. Сумма элементов вектора.
   ```
 * Provide the full task definition in pull request's description.
 
