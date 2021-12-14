@@ -1,0 +1,581 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Вычисление многомерных интегралов методом Монте-Карло»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381906-2 \\ Преображенская Ю. Д.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Под методом Монте-Карло понимается численный метод решения математических задач при помощи моделирования случайных величин. Данный метод часто используется для вычисления многомерных интегралов, поскольку он прост для понимания и его вычислительная сложность не столь сильно зависит от размерности интегралов, в отличие от других способов интегрирования. Важно отметить, что применяя метод интегрирования Монте-Карло, мы не вычисляем интеграл аналитически, а, скорее, получаем соответствующую оценку его значения. Точность оценки зависит от количества смоделированных случайных величин. Однако, данный метод не обладает высокой точностью вычислений, поэтому обычно, говорят, что метод Монте-Карло особенно эффективен при решении тех задач, в которых важна не точность результата, а скорость его вычисления.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данном лабораторной работе требуется реализовать последовательный и параллельный алгоритмы вычисления многомерных интегралов методом Монте-Карло, провести вычислительный эксперименты для сравнения времени работы алгоритмов, используя при этом фрэймворк для разработки автоматических тестов Google Test, сделать выводы об эффективности реализованных алгоритмов.
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Предположим, требуется вычислить определенный интеграл размерности m следующего вида:
+$$I = \underset{V}{\int ... \int} f(x_1, ... , x_m) \,dx_1\,...\,dx_m, $$
+где подынтегральная функция задана в параллелепипеде, ограничивающем область интегрирования объемом $V=[a_1,b_1] \cdot [a_2,b_2]\ ... \cdot [a_m,b_m]$.
+\par Рассмотрим $m$-мерную случайную величину $\xi$,  равномерно распределенную в области интегрирования. Тогда $f(\xi)$ также будет случайной величиной, причём её математическое ожидание выражается следующим образом:
+$$Mf(\xi) = \underset{V}{\int ... \int} f(x_1, ... , x_m) \ p(x) \,dx_1\,...\,dx_m, $$
+где $p(x)=\frac{1}{V}$ - плотность распределения случайной величины $\xi.$
+\par Таким образом, искомый интеграл выражается следующим образом:
+$$I = V \cdot Mf(\xi)$$
+\par Математическое ожидание случайной величины $f(\xi)$ можно легко оценить, смоделировав эту случайную величину и посчитав выборочное среднее. Для этого «бросаем» $N$ $m$-мерных случайных точек, равномерно распределенных на области интегрирования $V$, и в каждой точке $\xi_i$ вычисляем значение подынтегральной функции $f(\xi_i)$. Затем вычислим выборочное среднее по формуле:
+$$\frac{1}{N}\sum\limits_{i=1}^N f(\xi_i)$$
+\par В итоге получаем следующую приближённую формулу для оценку интеграла:
+$$I\approx\frac{V}{N}\sum\limits_{i=1}^N f(\xi_i)$$
+\par Как мы можем заметить, точность оценки зависит от количества точек $N$.
+\par Стоит отметить, что для того, чтобы смоделировать выборку m-мерной случайной величины $\xi$, равномерно распределенной в m-мерном пространстве $V$, я использую псевдослучайные числа. Для каждой точки генерируются её координаты - m псевдослучайных чисел, каждое из которых равномерно распределено в своих пределах интегрирования.
+\par Таким образом, суть метода Монте-Карло для вычисления интегралов заключается в генерации псевдослучайных чисел в области $V$ и применении приближенной формулы, приведённой выше.
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Процесс с рангом 0 генерирует случайные точки в заданной области интегрирования и затем распределяет эти точки между всеми процессами. Количество точек, которые должен обработать каждый из процессов, вычисляется по формуле $N_{\text{local}} = \frac{\text{общее количество точек}}{\text{количество процессов}}$. Если при делении образуется остаток, то эти оставшиеся точки отдаём на обработку процессу с рангом 0. Каждый процесс вычисляет значения подынтегральной функции в поступивших к нему точках, суммирует эти значения и отправляет получившиеся локальные суммы в процесс с рангом 0. В 0-ом процессе все локальные суммы сначала складываются в глобальную сумму, затем получившаяся глобальная сумма делится на общее количество случайных точек и умножается на объём параллелепипеда, ограничивающего заданную область интегрирования. В итоге получаем приближенное значение искомого интеграла.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла multi\_dimension\_monte\_carlo.h и двух файлов исходного кода multi\_dimension\_monte\_carlo.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного вычисления многомерных интегралов.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+double getSequentialOperations(const std::vector<double>& lower, const
+std::vector<double>& upper, int number_of_points, const std::function<double(const std::vector<double>&)>& func);
+\end{lstlisting}
+Первый параметр функции является вектором нижних пределов интегрирования, второй - вектором верхних пределов интегрирования, третий - количеством случайных точек, четвертый - подынтегральной функцией.
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+double getParallelOperations(const std::vector<double>& lower, const
+std::vector<double>& upper, int number_of_points, const std::function<double(const std::vector<double>&)>& func); 
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода multi\_dimension\_monte\_carlo.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью фрэймфорка Google Test мной было разработано 6 тестов. В каждом из тестов вычисляется значение интеграла заданной размерности при помощи последовательного и параллельного алгоритмов, подсчитывается время работы обоих алгоритмов, находится ускорение и затем результаты вычисления интеграла последовательным и параллельным способом сравниваются между собой в пределах погрешности.
+\par Свою программу я тестирую на следующих подынтегральных функциях:
+\begin{itemize}
+  \item $7x_1^2 + 6x_2^3$
+  \item $\arctan(x_1) + 7\sin(x_2) + 3x_3^2$
+  \item $x_1 + 8x_2 + x_3^3 - \cos(x_4)$
+  \item $5x_1^3 - 2x_2 + \sin(x_3 \cdot x_4 \cdot x_5)$
+\end{itemize}
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 4500U, 2.3 ГГц (4.0 ГГц, в режиме Turbo), количество ядер: 6;
+\item Оперативная память: 8 ГБ (DDR4), 3200 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Эксперименты проводились на различном числе процессов для вычисления четырехмерного интеграла (4-ый тест) с количеством случайных точек, равным 1000000 (см. Таблицу 1), и на 6 процессах для вычисления двойного интеграла (1-ый тест) с количеством случайных точек, равным 100000 (см. Таблицу 2).
+
+\par Результаты экспериментов представлены в Таблице 1 и в Таблице 2.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте 4}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 3.3475        & 3.76676     & 0.888696       \\
+2        & 3.35775        & 2.3388     & 1.43567       \\
+3        & 3.34642        & 1.89855     & 1.76261       \\
+4        & 3.35924        & 1.68735     & 1.99084       \\
+5        & 3.34809        & 1.57535     & 2.1253       \\
+6        & 3.35504        & 1.51344     & 2.21683       \\
+7        & 3.39476        & 1.51552     & 2.24       \\
+9        & 3.37919        & 1.5558     & 2.17199	    \\
+11        & 3.41202        & 1.66682     & 2.04703	  \\
+33        & 3.37404        & 1.99409     & 1.69202	  \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результат вычислительного эксперимента в тесте 1}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+6        & 0.294089        & 0.0974778     & 3.01699       \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+Из данных, полученных в результате экспериментов (см. Таблицу 1), можно сделать вывод, что параллельный алгоритм работает быстрее, чем последовательный. Можно заметить, что с увеличением числа процессов растёт ускорение. Однако, начиная с некоторого количества процессов, ускорение начинает немного уменьшаться. Это связано с тем, что псевдослучайные числа генерируются только в одном процессе, а затем частями передаются из этого процесса во все остальные процессы, соответственно, чем больше процессом, тем больше времени уходит на распределение данных. Несмотря на это, на относительно небольшом количестве процессом при большом количестве случайных точек удаётся достичь двукратного ускорения, что является хорошим результатом. Стоит также отметить, что на тестах с более простыми подынтегральными функциями и с меньшей размерностью (например, в 1-ом тесте) удаётся достичь трёхкратного ускорения (см. Таблицу 2).
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы вычисления многомерных интегралов методом Монте-Карло. Проведенные тесты показали корректность реализованной программы, а проведенные эксперименты доказали эффективность параллельного алгоритма по сравнению с последовательным.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Соболь И.М. Численные методы Монте-Карло. — М.: Изд-во «НАУКА», 1973, 305 с.
+\item Monte Carlo Integration examples C++ - Электронный ресурс. \newline URL: https://cameron-mcelfresh.medium.com/monte-carlo-integration-313b37157852
+\item Habr - Электронный ресурс. URL: https://habr.com/ru/post/274975/
+\item Википедия - Электронный ресурс. URL: https://ru.wikipedia.org/wiki/%D0%9C%D0%B5%D1%82%D0%BE%D0%B4_%D0%9C%D0%BE%D0%BD%D1%82%D0%B5-%D0%9A%D0%B0%D1%80%D0%BB%D0%BE#%D0%98%D0%BD%D1%82%D0%B5%D0%B3%D1%80%D0%B8%D1%80%D0%BE%D0%B2%D0%B0%D0%BD%D0%B8%D0%B5_%D0%BC%D0%B5%D1%82%D0%BE%D0%B4%D0%BE%D0%BC_%D0%9C%D0%BE%D0%BD%D1%82%D0%B5-%D0%9A%D0%B0%D1%80%D0%BB%D0%BE
+\item Мееров И.Б., Сысоев А.В. «Лабораторная работа. Параллельные методы Монте-Карло». Нижний Новгород, 2010, 35 с. 
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+multi\_dimension\_monte\_carlo.h
+\begin{lstlisting}
+// Copyright 2021 Preobrazhenskaya Yuliya
+#ifndef MODULES_TASK_3_PREOBRAZHENSKAYA_Y_MULTI_DIMENSION_MONTE_CARLO_H_
+#define MODULES_TASK_3_PREOBRAZHENSKAYA_Y_MULTI_DIMENSION_MONTE_CARLO_H_
+#include <mpi.h>
+#include <ctime>
+#include <random>
+#include <vector>
+#include <functional>
+
+double getParallelOperations(const std::vector<double>& lower,
+    const std::vector<double>& upper,
+    int number_of_points,
+    const std::function<double(const std::vector<double>&)>& func);
+double getSequentialOperations(const std::vector<double>& lower,
+    const std::vector<double>& upper,
+    int number_of_points,
+    const std::function<double(const std::vector<double>&)>& func);
+
+#endif  // MODULES_TASK_3_TASK_3_PREOBRAZHENSKAYA_Y_MULTI_DIMENSION_MONTE_CARLO_H_
+
+\end{lstlisting}
+multi\_dimension\_monte\_carlo.cpp
+\begin{lstlisting}
+// Copyright 2021 Preobrazhenskaya Yuliya
+#include "../../../modules/task_3/preobrazhenskaya_y/multi_dimension_monte_carlo.h"
+
+double getSequentialOperations(const std::vector<double>& lower,
+    const std::vector<double>& upper,
+    int number_of_points,
+    const std::function<double(const std::vector<double>&)>& func) {
+    int dimension = static_cast<int>(upper.size());
+    std::mt19937 gen(time(0));
+    std::vector<std::uniform_real_distribution<double>> uniform(dimension);
+
+    double result = 0.0;
+
+    for (int i = 0; i < dimension; i++)
+        uniform[i] = std::uniform_real_distribution<double>(lower[i], upper[i]);
+
+    std::vector<double> node(dimension);
+
+    for (int i = 0; i < number_of_points; i++) {
+        for (int j = 0; j < dimension; j++)
+            node[j] = uniform[j](gen);
+        result += func(node);
+    }
+    for (int i = 0; i < dimension; i++) {
+        result *= (upper[i] - lower[i]);
+    }
+    result /= number_of_points;
+    return result;
+}
+
+double getParallelOperations(const std::vector<double>& lower,
+    const std::vector<double>& upper,
+    int number_of_points,
+    const std::function<double(const std::vector<double>&)>& func) {
+    int rank;
+    int size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    int dimension = static_cast<int>(upper.size());
+    std::vector<double>
+        node(static_cast<unsigned int>(number_of_points * dimension));
+
+    if (rank == 0) {
+        std::mt19937 gen(time(0));
+        std::vector<std::uniform_real_distribution<double>> uniform(dimension);
+        for (int i = 0; i < dimension; i++) {
+            uniform[i] = std::uniform_real_distribution<double>
+                (lower[i], upper[i]);
+        }
+        for (int i = 0; i < number_of_points; i++) {
+            for (int j = 0; j < dimension; j++) {
+                node[(i * dimension) + j] = uniform[j](gen);
+            }
+        }
+    }
+
+    double local_result = 0.0;
+    double global_result = 0.0;
+    int local_number_of_points = number_of_points / size;
+    int delta = number_of_points % size;
+    std::vector<double> local_node(local_number_of_points * dimension);
+
+    MPI_Scatter(&node[0], local_number_of_points * dimension, MPI_DOUBLE,
+        &local_node[0], local_number_of_points * dimension, MPI_DOUBLE,
+        0, MPI_COMM_WORLD);
+
+    std::vector<double> node_(dimension);
+
+    for (int i = 0; i < local_number_of_points; i++) {
+        for (int j = 0; j < dimension; j++) {
+            node_[j] = local_node[(i * dimension) + j];
+        }
+        local_result += func(node_);
+    }
+
+    if (rank == 0) {
+        for (int i = 0; i < delta; i++) {
+            for (int j = 0; j < dimension; j++) {
+                node_[j] =
+                    node[(local_number_of_points * size + i) * dimension + j];
+            }
+            local_result += func(node_);
+        }
+    }
+
+    MPI_Reduce(&local_result, &global_result, 1, MPI_DOUBLE,
+        MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        for (int i = 0; i < dimension; i++) {
+            global_result *= (upper[i] - lower[i]);
+        }
+        global_result /= number_of_points;
+    }
+
+    return global_result;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Preobrazhenskaya Yuliya
+#include <gtest/gtest.h>
+#include <iostream>
+#include <cmath>
+#include "./multi_dimension_monte_carlo.h"
+#include <gtest-mpi-listener.hpp>
+
+double func_1(std::vector<double> v) {
+    return 7 * v[0] * v[0] + 6 * v[1] * v[1] * v[1];
+}
+
+double func_2(std::vector<double> v) {
+    return atan(v[0]) + 7 * sin(v[1]) + 3 * v[2] * v[2];
+}
+
+double func_3(std::vector<double> v) {
+    return v[0] + 8 * v[1] + v[2] * v[2] * v[2] - cos(v[3]);
+}
+
+double func_4(std::vector<double> v) {
+    return 5 * v[0] * v[0] * v[0] - 2 * v[1] + sin(v[2] * v[3] * v[4]);
+}
+
+TEST(Multi_Dimension_Monte_Carlo_MPI, dimension_is_2) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double>lower = { 0.0, 1.0 };
+    std::vector<double>upper = { 1.0, 2.0 };
+    int number_of_points = 100000;
+    double start = MPI_Wtime();
+    double parallel_result = getParallelOperations(lower, upper,
+        number_of_points, func_1);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        double parallel_runtime = end - start;
+        double start = MPI_Wtime();
+        double sequential_result = getSequentialOperations(lower, upper,
+            number_of_points, func_1);
+        double end = MPI_Wtime();
+        double sequential_runtime = end - start;
+        double error = abs(sequential_result - parallel_result);
+        std::cout << "parallel_result = " << parallel_result << std::endl;
+        std::cout << "sequential_result = " << sequential_result << std::endl;
+        std::cout << "parallel_runtime = " << parallel_runtime << std::endl;
+        std::cout << "sequential_runtime = " << sequential_runtime
+            << std::endl;
+        std::cout << "acceleration = " << sequential_runtime / parallel_runtime
+            << std::endl;
+        ASSERT_NEAR(parallel_result, sequential_result, error);
+    }
+}
+
+TEST(Multi_Dimension_Monte_Carlo_MPI, dimension_is_3) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double>lower = { 0.5, 1.5, 3.0 };
+    std::vector<double>upper = { 2.0, 3.0, 5.5 };
+    int number_of_points = 100000;
+    double start = MPI_Wtime();
+    double parallel_result = getParallelOperations(lower, upper,
+        number_of_points, func_2);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        double parallel_runtime = end - start;
+        double start = MPI_Wtime();
+        double sequential_result = getSequentialOperations(lower, upper,
+            number_of_points, func_2);
+        double end = MPI_Wtime();
+        double sequential_runtime = end - start;
+        double error = abs(sequential_result - parallel_result);
+        std::cout << "parallel_result = " << parallel_result << std::endl;
+        std::cout << "sequential_result = " << sequential_result << std::endl;
+        std::cout << "parallel_runtime = " << parallel_runtime << std::endl;
+        std::cout << "sequential_runtime = " << sequential_runtime
+            << std::endl;
+        std::cout << "acceleration = " << sequential_runtime / parallel_runtime
+            << std::endl;
+        ASSERT_NEAR(parallel_result, sequential_result, error);
+    }
+}
+
+TEST(Multi_Dimension_Monte_Carlo_MPI, dimension_is_4) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double>lower = { -2.0, 1.3, -4.0, 0.0 };
+    std::vector<double>upper = { 0.0, 3.6, -1.0, 2.0 };
+    int number_of_points = 100000;
+    double start = MPI_Wtime();
+    double parallel_result = getParallelOperations(lower, upper,
+        number_of_points, func_3);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        double parallel_runtime = end - start;
+        double start = MPI_Wtime();
+        double sequential_result = getSequentialOperations(lower, upper,
+            number_of_points, func_3);
+        double end = MPI_Wtime();
+        double sequential_runtime = end - start;
+        double error = abs(sequential_result - parallel_result);
+        std::cout << "parallel_result = " << parallel_result << std::endl;
+        std::cout << "sequential_result = " << sequential_result << std::endl;
+        std::cout << "parallel_runtime = " << parallel_runtime << std::endl;
+        std::cout << "sequential_runtime = " << sequential_runtime
+            << std::endl;
+        std::cout << "acceleration = " << sequential_runtime / parallel_runtime
+            << std::endl;
+        ASSERT_NEAR(parallel_result, sequential_result, error);
+    }
+}
+
+TEST(Multi_Dimension_Monte_Carlo_MPI, dimension_is_4_with_more_points) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double>lower = { -2.0, 1.3, -4.0, 0.0 };
+    std::vector<double>upper = { 0.0, 3.6, -1.0, 2.0 };
+    int number_of_points = 1000000;
+    double start = MPI_Wtime();
+    double parallel_result = getParallelOperations(lower, upper,
+        number_of_points, func_3);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        double parallel_runtime = end - start;
+        double start = MPI_Wtime();
+        double sequential_result = getSequentialOperations(lower, upper,
+            number_of_points, func_3);
+        double end = MPI_Wtime();
+        double sequential_runtime = end - start;
+        double error = abs(sequential_result - parallel_result);
+        std::cout << "parallel_result = " << parallel_result << std::endl;
+        std::cout << "sequential_result = " << sequential_result << std::endl;
+        std::cout << "parallel_runtime = " << parallel_runtime << std::endl;
+        std::cout << "sequential_runtime = " << sequential_runtime
+            << std::endl;
+        std::cout << "acceleration = " << sequential_runtime / parallel_runtime
+            << std::endl;
+        ASSERT_NEAR(parallel_result, sequential_result, error);
+    }
+}
+
+TEST(Multi_Dimension_Monte_Carlo_MPI, dimension_is_5) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double>lower = { 0.0, 1.5, 1.0, 3.0, 2.0 };
+    std::vector<double>upper = { 4.0, 2.5, 5.0, 6.0, 3.0 };
+    int number_of_points = 100000;
+    double start = MPI_Wtime();
+    double parallel_result = getParallelOperations(lower, upper,
+        number_of_points, func_4);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        double parallel_runtime = end - start;
+        double start = MPI_Wtime();
+        double sequential_result = getSequentialOperations(lower, upper,
+            number_of_points, func_4);
+        double end = MPI_Wtime();
+        double sequential_runtime = end - start;
+        double error = abs(sequential_result - parallel_result);
+        std::cout << "parallel_result = " << parallel_result << std::endl;
+        std::cout << "sequential_result = " << sequential_result << std::endl;
+        std::cout << "parallel_runtime = " << parallel_runtime << std::endl;
+        std::cout << "sequential_runtime = " << sequential_runtime
+            << std::endl;
+        std::cout << "acceleration = " << sequential_runtime / parallel_runtime
+            << std::endl;
+        ASSERT_NEAR(parallel_result, sequential_result, error);
+    }
+}
+
+TEST(Multi_Dimension_Monte_Carlo_MPI, dimension_is_5_with_more_points) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<double>lower = { 0.0, 1.5, 1.0, 3.0, 2.0 };
+    std::vector<double>upper = { 4.0, 2.5, 5.0, 6.0, 3.0 };
+    int number_of_points = 1000000;
+    double start = MPI_Wtime();
+    double parallel_result = getParallelOperations(lower, upper,
+        number_of_points, func_4);
+    double end = MPI_Wtime();
+    if (rank == 0) {
+        double parallel_runtime = end - start;
+        double start = MPI_Wtime();
+        double sequential_result = getSequentialOperations(lower, upper,
+            number_of_points, func_4);
+        double end = MPI_Wtime();
+        double sequential_runtime = end - start;
+        double error = abs(sequential_result - parallel_result);
+        std::cout << "parallel_result = " << parallel_result << std::endl;
+        std::cout << "sequential_result = " << sequential_result << std::endl;
+        std::cout << "parallel_runtime = " << parallel_runtime << std::endl;
+        std::cout << "sequential_runtime = " << sequential_runtime
+            << std::endl;
+        std::cout << "acceleration = " << sequential_runtime / parallel_runtime
+            << std::endl;
+        ASSERT_NEAR(parallel_result, sequential_result, error);
+    }
+}
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
