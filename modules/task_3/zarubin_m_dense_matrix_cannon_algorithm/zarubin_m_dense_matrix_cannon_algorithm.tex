@@ -1,0 +1,709 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Умножение плотных матриц. Элементы типа double. Блочная схема, алгоритм Кэннона.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Зарубин М.П.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Перемножение матриц - одна из типичных задач не только для математики, но и для программирования, так как представление данных в матричной форме встречается повсеместно, а различные действия с ними зачастую требуют именно перемножения. В общем случае эта операция достаточно затратная и с точки зрения требуемой памяти, и со стороны процессорного времени - сложность последовательного алгоритма кубическая. Алгоритм Кэннона позволяет производить операцию перемножения матриц параллельно, значительно уменьшая время вычислений. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе необходимо реализовать блочный алгоритм Кэннона для умножения плотных матриц, то есть матриц с преимущественно ненулевыми элементами. Также требуется написание последовательного алгоритма, обеспечивающего перемножение матриц в классическом виде - с ним мы будем сравнивать параллельный по скорости работы и выясним корректность вычислений, сопоставив результаты последовательного и параллельного алгоритма посредством Google Test.
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Пусть мы решаем задачу перемножения матриц A $ \times $ B , где A и В квадратные матрицы одинакового размера N $\times $ N. Важно, что в данном случае работа происходит именно с квадратными матрицами, иначе мы не могли бы гарантировать возможность такого разбиения, а следовательно и применение алгоритма Кэннона к полученным данным. 
+\par На первом шаге алгоритма требуется разбить матрицы A и В на квадратные блоки одинакового размера - их количество зависит от числа процессов. При этом корень из числа процессов должен быть кратен размеру матриц, который мы обозначили как N.
+\par После разбиения мы можем распределить блоки матриц по процессам - каждому достанется ровно один блок матрицы A и один блок матрицы B. Затем процессы организуются в виртуальную декартову топологию, которая, исходя из введенных выше условий, будет иметь форму квадратной решетки. Считая, что строки и столбцы решетки нумеруются с нуля, перед первой итерацией алгоритма мы смещаем блоки матрицы A на i позиций влево, где i - это номер строки, а блоки матрицы B на j позиций вверх, где j - это номер столбца.
+\par Далее проводится $ \sqrt{size} $ итераций, где size - это число процессов, участвующих в алгоритме, во время которых сначала происходит перемножение блоков по методу трех вложенных циклов, и произведение складывается с текущим значением результирующего блока. Затем выполняется циклический сдвиг блоков матрицы А влево и циклический сдвиг блоков матрицы В вверх. После выполнения всех итераций ответ собирается из полученных на каждом процессе результирующих блоков.
+
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Нулевой процесс является владельцем ресурсов - именно в нем мы генерируем матрицы A и B, поэтому он и выполняет рассылку данных. Как уже говорилось выше, исходные матрицы делятся на квадратные блоки одинакового размера, а также требуется кратность корня из числа процессов размеру матриц, то есть size \% N = 0, где size - число процессов, а N - размерность матриц. В общем случае мы можем запустить программу на любом количестве процессов, поэтому гарантий кратности нет и требуется вычислить в коде ближайшее число процессов, меньшее или равное задействованному в программе, удовлетворяющее условию кратности. После мы создаем для них новый коммуникатор, с которым впоследствии и будем работать. В случае, если условию удовлетворяет только число процессов, равное одному (такое может быть, когда N - простое число и количество процессов заведомо меньше N), мы просто запускаем последовательный алгоритм на нулевом процессе и возвращаем его результат.
+\par Выяснив требуемое число процессов, мы переходим к следующей логической части программы - распределению данных. Каждый процесс будет владеть одним блоком каждой матрицы, то есть количество блоков будет равно количеству процессов, исходя из чего мы можем найти размер одного блока - local\_size, и число разбиений одной строки/столбца - count\_parts. Эти значения необходимы для того, чтобы правильно вычислить смещение каждого блока в исходных матрицах. Для корректной передачи также требуется размещение данных в последовательной памяти, поэтому для начала мы обеспечиваем это переупаковкой блоков во временный вектор, после чего отправляем его с помощью MPI\_Send().
+\par Все процессы, кроме нулевого, должны принять переданные им данные в локальные переменные - вектора local\_first\_matrix и local\_second\_matrix, размер которых равен local\_size $ \times $ local\_size. В эти переменные посредством вызова функции приема MPI\_Recv() происходит запись нужных значений, нулевой процесс же просто копирует данные из исходных матриц, так как он ими владеет изначально.
+\par Для алгоритма Кэннона требуется создание виртуальной декартовой топологии процессов, так как передача осуществляется между соседями внутри решетки. Такое поведение можно сымитировать, отдельно вычислив значения рангов соседних процессов, при этом мы заранее знаем, что левому по строке мы будем передавать блок матрицы A, от правого же будем его получать, а между соседями по вертикали осуществляется передача матрицы B - вверх отправляем, снизу принимаем. В случае, если мы находимся в крайних точках столбца или строки, соответствующими соседями будут процессы, расположенные с их другого конца - все это учтено при вычислении значений переменных sender\_a, recipient\_a, sender\_b и recipient\_b. 
+\par Отдельно необходимо осуществить начальный сдвиг блоков матриц, требуемый алгоритмом Кэннона - блоки матрицы A сдвигаются на i позиций влево, а блоки матрицы B на j позиций вверх, где i и j соответствуют номеру строки и столбца решетки, 0 $ \leq $ i, j $ \leq \sqrt{size} $. Такой сдвиг мы также можем вычислить, зная текущий ранг процесса и количество блоков в строке/столбце, поэтому делаем это перед началом основного цикла, перераспределяя блоки требуемым образом.
+\par В основном цикле алгоритма мы перемножаем блоки матриц A и B, которые на текущий момент находятся в процессе, и дополняем локальный результат - это происходит с помощью вызова последовательного алгоритма. После происходит совмещенная прием-передача данных соседям и цикл повторяется. В конечном итоге совершается $ \sqrt{size} $ итераций, что гарантирует перемножение каждой строки на каждый столбец, а это и требуется при операции умножения матриц.
+\par По завершению основного цикла в каждом процессе будет храниться локальный результат, который в итоге должен располагаться на позиции, соответствующей положению его блока в исходных матрицах. Следовательно, мы можем создать в каждом процессе результирующую матрицу размером N $ \times $ N и перезаписать локальный результат на требуемое место, а после собрать все данные в нулевом процессе с помощью редукции с операцией суммирования - это и происходит на завершающей стадии параллельного алгоритма. В конца остается лишь вернуть полученный ответ, который в нулевом процессе и будет являться результатом умножения матриц.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла dense\_matrix\_cannon\_algorithm.h и двух файлов исходного кода dense\_matrix\_cannon\_algorithm.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для генерации матрицы, последовательного и параллельного алгоритма, а также функция для вычисления актуального числа процессов, которая используется в начале параллельной схемы.
+\par Функция для генерации матрицы:
+\begin{lstlisting}
+void generateRandomMatrix(std::vector<double>* matrix,
+    std::vector<double>::size_type size,
+    int left_dorder, int right_border);
+\end{lstlisting}
+Первый параметр функции является указателем на уже созданный в вызывающем коде вектор (это удобно, так как не придется возвращать результат, что привело бы к копированию данных), второй соответствует размеру (количеству строк или столбцов) матрицы, а третий и четвертый являются левой и правой границами диапазона случайных значений.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+void getSequentialOperations(const std::vector<double>& first_matrix,
+    const std::vector<double>& second_matrix,
+    std::vector<double>* answer,
+    std::vector<double>::size_type size); 
+\end{lstlisting}
+Первые 2 параметра являются константными ссылками на матрицы A и B - такой способ передачи позволяет избежать копирования данных, третий параметр представляет собой указатель на результирующий вектор, который будет создан в вызывающем коде - это опять же приведет к экономии памяти ввиду отсутствия возвращаемого значения, четвертый параметр соответствует размеру (число строк или столбцов) перемножаемых матриц.
+\par Функция для параллельного алгоритма:
+\begin{lstlisting}
+std::vector<double> getParallelOperations(const std::vector<double>& first_matrix,
+    const std::vector<double>& second_matrix,
+    std::vector<double>::size_type size);
+\end{lstlisting}
+Первые 2 параметра являются константными ссылками на матрицы A и B - такой способ передачи позволяет избежать копирования данных, третий параметр соответствует размеру (число строк или столбцов) перемножаемых матриц.
+\par Функция для вычисления актуального числа процессов:
+\begin{lstlisting}
+int calculateActualSize(int old_size,
+    std::vector<double>::size_type matrix_size);
+\end{lstlisting}
+Первый параметр является целым числом, равным исходному числу процессов, на котором запускается программа, а второй соответствует размеру (число строк или столбцов) перемножаемых матриц.
+\par В файле исходного кода dense\_matrix\_cannon\_algorithm.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы и тест, показывающий эффективность алгоритма Кэннона путем сравнения его времени выполнения с последовательной схемой.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы программы мною были разработаны 8 тестов, в каждом из которых проверяется та или иная функция. Изначально тестируется возможность генерации рандомной матрицы, после проверяется последовательный алгоритм на матрицах небольших размеров посредством сравнения полученного результата с ожидаемым - он подсчитывается вручную. После этого можно утверждать о том, что последовательный алгоритм корректен, поэтому в следующих тестах для параллельного алгоритма его результат сверяется с тем, который выдал последовательный для аналогичных матриц.
+\par Параллельный алгоритм тестируется на матрицах, размер которых кратен 2, 3, 5 и 7 - это позволяет проверить корректность блочного разбиения.
+\par Успешное прохождение всех тестов, которое было проверено многочисленными запусками программы на различном числе процессов, подтверждает корректность работы алгоритмов.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки параллельного алгоритма проводились на ноутбуке Honor MagicBook 15 со следующими техническими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 5500U, 2.1 ГГц (4.0 ГГц, в режиме Turbo), количество ядер: 6, количество потоков: 12;
+\item Оперативная память: 16 ГБ (DDR4), 3200 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Для сравнения времени работы алгоритмов был написан девятый тест, по умолчанию объявленный DISABLED - ключевое слово в названии, которое запрещает ему запускаться. Это сделано для того, чтобы тест не задерживал проверку работоспособности программ в репозитории на GitHub, так как эффективность нужно сравнивать на больших данных - программа с ними работает заметно дольше, а для того, чтобы убедиться в работоспособности, достаточно запусков с маленькими матрицами. В случае локального тестирования мы меняем название теста, удаляя слово DISABLED, и убеждаемся в эффективности параллельной схемы на основе следующих вычислений:
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов с матрицами 1000х1000}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+4        & 1.570580        & 0.542408     & 2.895570       \\
+9        & 1.574804        & 0.511959    & 3.076037       \\
+16        & 1.612872        & 0.286222     & 5.635034       \\
+
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов с матрицами 2000х2000}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+4        & 12.221306        & 4.611136     & 2.650389       \\
+9        & 12.383797        & 4.500529     & 2.751632       \\
+16        & 12.629492        & 3.990905     & 3.164568       \\
+
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+Как видно из проведенных экспериментов, параллельный алгоритм показывает стабильное ускорение на матрицах относительно больших размеров, которое растет при увеличении числа задействованных процессов. Рост происходит даже в случае, когда число процессов превосходит количество физических ядер (напомню, их на машине 6) - это связано с уменьшением количества данных на каждом процессе, благодаря появляется разместить их в более быстрой памяти (RAM или кэше). По аналогичной причине ускорение на матрицах 2000х2000 на 16 процессах заметно меньше, чем в случае матриц 1000х1000 - закэшировать такой объем гораздо сложнее, особенно при условии работы сторонних программ, а в момент тестирования в фоне работали Google Chrome, антивирус и несколько системных серверов.
+Важно отметить, что тестирование проводилось на числе процессов, являющимся полным квадратом - это связано с блочным разбиением, из-за которого мы в любом случае срежем их количество до ближайшего квадрата с левой стороны, кратного размерности матрицы.
+ 
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+На основании проведенных проведённых экспериментов мы можем заключить, что параллельный алгоритм Кэннона разработан верно и способен работать быстрее последовательного, а значит решает одну из главных задач параллельного программирования - ускорить вычисления, особенно на больших объемах данных.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Интернет-университет суперкомпьютерных технологий: Теория и практика параллельных вычислений. Лекция 7 - Электронный ресурс. \newline URL: https://intuit.ru/studies/courses/1156/190/lecture/4954?page=5
+\item Wikipedia. Cannon's algorithm - Электронный ресурс. \newline URL: https://en.wikipedia.org/wiki/Cannon%27s_algorithm 
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+dense\_matrix\_cannon\_algorithm.h
+\begin{lstlisting}
+// Copyright 2021 Zarubin Mikhail
+#ifndef MODULES_TASK_3_ZARUBIN_M_DENSE_MATRIX_CANNON_ALGORITHM_DENSE_MATRIX_CANNON_ALGORITHM_H_
+#define MODULES_TASK_3_ZARUBIN_M_DENSE_MATRIX_CANNON_ALGORITHM_DENSE_MATRIX_CANNON_ALGORITHM_H_
+#include <vector>
+
+void generateRandomMatrix(std::vector<double>* matrix,
+    std::vector<double>::size_type size,
+    int left_dorder, int right_border);
+void getSequentialOperations(const std::vector<double>& first_matrix,
+    const std::vector<double>& second_matrix,
+    std::vector<double>* answer,
+    std::vector<double>::size_type size);
+std::vector<double> getParallelOperations(const std::vector<double>& first_matrix,
+    const std::vector<double>& second_matrix,
+    std::vector<double>::size_type size);
+int calculateActualSize(int old_size,
+    std::vector<double>::size_type matrix_size);
+
+#endif  // MODULES_TASK_3_ZARUBIN_M_DENSE_MATRIX_CANNON_ALGORITHM_DENSE_MATRIX_CANNON_ALGORITHM_H_
+
+\end{lstlisting}
+dense\_matrix\_cannon\_algorithm.cpp
+\begin{lstlisting}
+// Copyright 2021 Zarubin Mikhail
+#include <mpi.h>
+#include <vector>
+#include <string>
+#include <random>
+#include <algorithm>
+#include "../../../modules/task_3/zarubin_m_dense_matrix_cannon_algorithm/dense_matrix_cannon_algorithm.h"
+
+
+void generateRandomMatrix(std::vector<double>* matrix,
+    std::vector<double>::size_type size,
+    int left_border, int right_border) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    std::uniform_real_distribution<> urd(left_border, right_border);
+    for (std::vector<double>::size_type i = 0; i < size * size; i++) {
+        (*matrix)[i] = urd(gen);
+    }
+}
+
+void getSequentialOperations(const std::vector<double>& first_matrix,
+    const std::vector<double>& second_matrix,
+    std::vector<double>* answer,
+    std::vector<double>::size_type size) {
+    for (std::vector<double>::size_type i = 0; i < size; ++i) {
+        for (std::vector<double>::size_type j = 0; j < size; ++j) {
+            for (std::vector<double>::size_type k = 0; k < size; ++k) {
+                (*answer)[i * size + j] += first_matrix[i * size + k] * second_matrix[j + k * size];
+            }
+        }
+    }
+}
+
+int calculateActualSize(int old_size,
+    std::vector<double>::size_type matrix_size) {
+    int sqrt_size = static_cast<int>(sqrt(old_size));
+    for (; matrix_size % sqrt_size && sqrt_size >= 2; --sqrt_size) {}
+    return sqrt_size * sqrt_size;
+}
+
+std::vector<double> getParallelOperations(const std::vector<double>& first_matrix,
+    const std::vector<double>& second_matrix,
+    std::vector<double>::size_type matrix_size) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int actual_size = calculateActualSize(size, matrix_size);
+
+    MPI_Group MPI_GROUP, MPI_ACTUAL_GROUP;
+    MPI_Comm_group(MPI_COMM_WORLD, &MPI_GROUP);
+
+    std::vector<int> actual_proc_vector(actual_size);
+    for (int i = 0; i < actual_size; ++i)
+        actual_proc_vector[i] = i;
+
+    MPI_Comm MPI_ACTUAL_PROC;
+    MPI_Group_incl(MPI_GROUP, actual_size, actual_proc_vector.data(), &MPI_ACTUAL_GROUP);
+    MPI_Comm_create(MPI_COMM_WORLD, MPI_ACTUAL_GROUP, &MPI_ACTUAL_PROC);
+
+    std::vector<double> global_answer(matrix_size * matrix_size, 0.0);
+    if (size < 4 || actual_size < 4) {
+        if (rank == 0)
+            getSequentialOperations(first_matrix, second_matrix, &global_answer, matrix_size);
+
+        return global_answer;
+    }
+
+    if (rank >= actual_size)
+        return global_answer;
+
+    int count_parts = static_cast<int>(sqrt(actual_size));
+    std::vector<double>::size_type local_size = matrix_size / count_parts;
+
+    if (rank == 0) {
+        for (int proc = 1; proc < actual_size; ++proc) {
+            std::vector<double>::size_type step = (proc / count_parts) * matrix_size * local_size +
+                proc % count_parts * local_size;
+
+            std::vector<double> part_first_matrix(local_size * local_size, 0.0);
+            std::vector<double> part_second_matrix(local_size * local_size, 0.0);
+
+            for (std::vector<double>::size_type i = 0; i < local_size * local_size; ++i) {
+                std::vector<double>::size_type global_offset = matrix_size * (i / local_size);
+                std::vector<double>::size_type local_offset = i % local_size;
+
+                part_first_matrix[i] = first_matrix[step + local_offset + global_offset];
+                part_second_matrix[i] = second_matrix[step + local_offset + global_offset];
+            }
+
+            MPI_Send(part_first_matrix.data(), static_cast<int>(local_size * local_size),
+                MPI_DOUBLE, proc, 1, MPI_ACTUAL_PROC);
+            MPI_Send(part_second_matrix.data(), static_cast<int>(local_size * local_size),
+                MPI_DOUBLE, proc, 2, MPI_ACTUAL_PROC);
+        }
+    }
+
+    std::vector<double> local_first_matrix(local_size * local_size, 0.0);
+    std::vector<double> local_second_matrix(local_size * local_size, 0.0);
+
+    if (rank == 0) {
+        for (std::vector<double>::size_type i = 0; i < local_size * local_size; ++i) {
+            std::vector<double>::size_type global_offset = matrix_size * (i / local_size);
+            std::vector<double>::size_type local_offset = i % local_size;
+
+            local_first_matrix[i] = first_matrix[local_offset + global_offset];
+            local_second_matrix[i] = second_matrix[local_offset + global_offset];
+        }
+    } else {
+        MPI_Status status;
+        MPI_Recv(local_first_matrix.data(), static_cast<int>(local_size * local_size),
+            MPI_DOUBLE, 0, 1, MPI_ACTUAL_PROC, &status);
+        MPI_Recv(local_second_matrix.data(), static_cast<int>(local_size * local_size),
+            MPI_DOUBLE, 0, 2, MPI_ACTUAL_PROC, &status);
+    }
+
+    std::vector<double> local_answer_vector(local_size * local_size, 0.0);
+    std::vector<double> local_answer_matrix(matrix_size * matrix_size, 0.0);
+
+    int proc_number_row = rank / count_parts;
+    int proc_number_column = rank % count_parts;
+
+    int init_recipient_a = ((rank - proc_number_row) / count_parts == proc_number_row && rank - proc_number_row >= 0) ?
+        rank - proc_number_row : rank + count_parts - proc_number_row;
+    int init_recipient_b = rank - proc_number_column * count_parts >= 0 ?
+        rank - proc_number_column * count_parts : actual_size + (rank - proc_number_column * count_parts);
+    int init_sender_a = (rank + proc_number_row) / count_parts == proc_number_row ?
+        rank + proc_number_row : rank - count_parts + proc_number_row;
+    int init_sender_b = rank + proc_number_column * count_parts < actual_size ?
+        rank + proc_number_column * count_parts : (rank + proc_number_column * count_parts) - actual_size;
+
+    MPI_Status status;
+
+    if (proc_number_row > 0) {
+        MPI_Sendrecv_replace(local_first_matrix.data(), static_cast<int>(local_size * local_size),
+            MPI_DOUBLE, init_recipient_a, 1, init_sender_a, 1, MPI_ACTUAL_PROC, &status);
+    }
+
+    if (proc_number_column > 0) {
+        MPI_Sendrecv_replace(local_second_matrix.data(), static_cast<int>(local_size * local_size),
+            MPI_DOUBLE, init_recipient_b, 2, init_sender_b, 2, MPI_ACTUAL_PROC, &status);
+    }
+
+    int recipient_a = ((rank - 1) / count_parts == proc_number_row && rank - 1 >= 0) ?
+        rank - 1 : rank + count_parts - 1;
+    int recipient_b = rank - count_parts >= 0 ?
+        rank - count_parts : actual_size + (rank - count_parts);
+    int sender_a = (rank + 1) / count_parts == proc_number_row ?
+        rank + 1 : rank - count_parts + 1;
+    int sender_b = rank + count_parts < actual_size ?
+        rank + count_parts : (rank + count_parts) - actual_size;
+
+    for (int i = 0; i < count_parts; ++i) {
+        getSequentialOperations(local_first_matrix, local_second_matrix, &local_answer_vector, local_size);
+
+        MPI_Sendrecv_replace(local_first_matrix.data(), static_cast<int>(local_size * local_size),
+            MPI_DOUBLE, recipient_a, 1, sender_a, 1, MPI_ACTUAL_PROC, &status);
+        MPI_Sendrecv_replace(local_second_matrix.data(), static_cast<int>(local_size * local_size),
+            MPI_DOUBLE, recipient_b, 2, sender_b, 2, MPI_ACTUAL_PROC, &status);
+    }
+
+    for (std::vector<double>::size_type i = 0; i < local_answer_vector.size(); i++) {
+        std::vector<double>::size_type row = (rank / count_parts) * local_size + i / local_size;
+        std::vector<double>::size_type column = (rank % count_parts) * local_size + i % local_size;
+
+        local_answer_matrix[row * matrix_size + column] = local_answer_vector[i];
+    }
+
+    MPI_Reduce(local_answer_matrix.data(), global_answer.data(), static_cast<int>(matrix_size * matrix_size),
+        MPI_DOUBLE, MPI_SUM, 0, MPI_ACTUAL_PROC);
+
+    return global_answer;
+}
+
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Zarubin Mikhail
+#include <gtest/gtest.h>
+#include <vector>
+#include "./dense_matrix_cannon_algorithm.h"
+#include <gtest-mpi-listener.hpp>
+
+
+TEST(GENERATE_VECTOR, can_generate_random_matrix) {
+    std::vector<double> matrix(5 * 5);
+    ASSERT_NO_THROW(generateRandomMatrix(&matrix, 5, -100, 100));
+}
+
+TEST(SEQUENTIAL_OPERATIONS, can_run_sequential_operations) {
+    std::vector<double> first_matrix(5 * 5), second_matrix(5 * 5), answer(5 * 5, 0.0);
+    generateRandomMatrix(&first_matrix, 5, -100, 100);
+    generateRandomMatrix(&second_matrix, 5, -100, 100);
+    ASSERT_NO_THROW(getSequentialOperations(first_matrix, second_matrix, &answer, 5));
+}
+
+TEST(SEQUENTIAL_OPERATIONS, correct_work_sequential_operations) {
+    std::vector<double> first_matrix = { 3.7 , 1.5, -4.1,
+                                        10.2, -8.6, 7.3,
+                                        -5.3, 9.2, -0.8 };
+    std::vector<double> second_matrix = { 2.9 , 0.5, -3.4,
+                                          11.8, -2.6, 10.3,
+                                          -1.3, 0.2, -10.1 };
+    std::vector<double> expected_result = { 33.76, -2.87, 44.28,
+                                            -81.39, 28.92, -196.99,
+                                            94.23, -26.73, 120.86 };
+    std::vector<double> result(3 * 3, 0.0);
+    getSequentialOperations(first_matrix, second_matrix, &result, 3);
+
+    for (std::vector<double>::size_type i = 0; i < result.size(); ++i) {
+        ASSERT_NEAR(result[i], expected_result[i], 0.001);
+    }
+}
+
+TEST(PARALLEL_OPERATIONS, can_run_parallel_operations) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 30;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    ASSERT_NO_THROW(getParallelOperations(first_matrix, second_matrix, matrix_size));
+}
+
+TEST(PARALLEL_OPERATIONS, correct_work_with_matirx_size_multiple_2) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 44;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+
+        for (std::vector<double>::size_type i = 0; i < result.size(); ++i) {
+            ASSERT_NEAR(result[i], expected_result[i], 0.001);
+        }
+    }
+}
+
+TEST(PARALLEL_OPERATIONS, correct_work_with_matirx_size_multiple_3) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 27;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+
+        for (std::vector<double>::size_type i = 0; i < result.size(); ++i) {
+            ASSERT_NEAR(result[i], expected_result[i], 0.001);
+        }
+    }
+}
+
+TEST(PARALLEL_OPERATIONS, correct_work_with_matirx_size_multiple_5) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 25;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+
+        for (std::vector<double>::size_type i = 0; i < result.size(); ++i) {
+            ASSERT_NEAR(result[i], expected_result[i], 0.001);
+        }
+    }
+}
+
+
+TEST(PARALLEL_OPERATIONS, correct_work_with_matirx_size_multiple_7) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 49;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+
+        for (std::vector<double>::size_type i = 0; i < result.size(); ++i) {
+            ASSERT_NEAR(result[i], expected_result[i], 0.001);
+        }
+    }
+}
+
+TEST(DISABLED_PARALLEL_OPERATIONS, comparison_working_hours_with_matrix_120x120) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 120;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    auto start_parallel_algorithm = MPI_Wtime();
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+    auto finish_parallel_algorithm = MPI_Wtime();
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+
+        auto start_sequential_algorithm = MPI_Wtime();
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+        auto finish_sequential_algorithm = MPI_Wtime();
+
+        auto parallel_time = finish_parallel_algorithm - start_parallel_algorithm;
+        auto sequential_time = finish_sequential_algorithm - start_sequential_algorithm;
+
+        printf("Sequential Time = %lf\nParallel Time = %lf\nBoost = %lf\n",
+            sequential_time, parallel_time, sequential_time / parallel_time);
+    }
+}
+
+TEST(PARALLEL_OPERATIONS, comparison_working_hours_with_matrix_240x240) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 240;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    auto start_parallel_algorithm = MPI_Wtime();
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+    auto finish_parallel_algorithm = MPI_Wtime();
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+
+        auto start_sequential_algorithm = MPI_Wtime();
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+        auto finish_sequential_algorithm = MPI_Wtime();
+
+        auto parallel_time = finish_parallel_algorithm - start_parallel_algorithm;
+        auto sequential_time = finish_sequential_algorithm - start_sequential_algorithm;
+
+        printf("Sequential Time = %lf\nParallel Time = %lf\nBoost = %lf\n",
+            sequential_time, parallel_time, sequential_time / parallel_time);
+    }
+}
+
+TEST(DISABLED_PARALLEL_OPERATIONS, comparison_working_hours_with_matrix_360x360) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<double>::size_type matrix_size = 360;
+    std::vector<double> first_matrix(matrix_size * matrix_size, 0.0);
+    std::vector<double> second_matrix(matrix_size * matrix_size, 0.0);
+
+    if (rank == 0) {
+        generateRandomMatrix(&first_matrix, matrix_size, -100, 100);
+        generateRandomMatrix(&second_matrix, matrix_size, -100, 100);
+    }
+
+    auto start_parallel_algorithm = MPI_Wtime();
+    std::vector<double> result = getParallelOperations(first_matrix, second_matrix, matrix_size);
+    auto finish_parallel_algorithm = MPI_Wtime();
+
+    if (rank == 0) {
+        std::vector<double> expected_result(matrix_size * matrix_size, 0.0);
+
+        auto start_sequential_algorithm = MPI_Wtime();
+        getSequentialOperations(first_matrix, second_matrix, &expected_result, matrix_size);
+        auto finish_sequential_algorithm = MPI_Wtime();
+
+        auto parallel_time = finish_parallel_algorithm - start_parallel_algorithm;
+        auto sequential_time = finish_sequential_algorithm - start_sequential_algorithm;
+
+        printf("Sequential Time = %lf\nParallel Time = %lf\nBoost = %lf\n",
+            sequential_time, parallel_time, sequential_time / parallel_time);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
