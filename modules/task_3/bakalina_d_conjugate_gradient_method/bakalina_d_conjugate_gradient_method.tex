@@ -1,0 +1,676 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Решение систем линейных уравнений методом сопряженных градиентов»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381906-2 \\ Бакалина Д.А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Решение систем линейных алгебраических уравнений (СЛАУ) – одна из классических задач линейной алгебры.
+Существуют различные способы решения СЛАУ. Одним из таких является метод
+сопряженных градиентов Метод сопряженных градиентов–один из наиболее известных итерационных методов для численного решения систем линейных уравнений. Он может быть применен для решения системы линейных уравнений с симметричной, положительноопределенной матрицей. Основная идея метода заключается в том, чтобы минимизировать норму так называемой ошибки. После выполнения n итераций метода сопряженных градиентов(n есть порядок решаемой системы линейных уравнений), очередное приближение $x_n$ совпадает с точным решением. Основным достоинством метода является то, что он решает задачу за конечное число шагов. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе требуется реализовать последовательный и параллельный алгоритмы решения системы линейных алгебраических уравнений методом сопряженных градиентов при помощи технологии MPI. Так же необходимо убедиться в корректности работы программы. Для этого необходимо реализовать ряд тестов с использованием Google C++ Testing Framework.Затем нужно провести вычислительный эксперименты для сравнения времени работы алгоритмов и сделать выводы об эффективности реализованных алгоритмов.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par  Матрица А является симметричной, если она совпадает со своей транспонированной, т.е. $A = A^T$. Симметричная матрица А называется положительно определенной, если для любого вектора $x$ выполняется следующее неравенство: $x^T$Ax > 0. Пусть дана система $n$ линейных уравнений $Ax = b$ ,где A - симметричная положительно определённая матрица размером n × n, а $x$ и $b$ - вектора размера $n$.
+\par Тогда процесс решения СЛАУ можно реализовать как минимизацию следующего
+функционала : $F(x) = (Ax,x) + 2(b,x) \rightarrow min $. В самом деле, функция $F(x)$ достигает своего минимального значения тогда и только тогда, когда ее градиент обращается в ноль. Таким образом, решение системы линейных уравнений можно искать как решение задачи безусловной минимизации.
+\par Итерационный процесс начинается с указания некоторого произвольного
+приближения $x$, а также нахождения вектора невязки r и вектора направления p (вектор p будем называть градиентом). В результате подготовительного шага получаем: $x$ = 1, $r= p = b-Ax$
+\par Основные шаги выполняются последовательно :
+\begin{enumerate}
+\item В процессе очередной итерации вычисляется значение скалярного шага $\alpha$
+\begin{equation}
+    \alpha  = \frac{(r,r)}{(Ap,p)}
+\end{equation}
+\item Находим очередное приближение:
+\begin{equation}
+   x = x - \alpha * p
+\end{equation}
+\item Обновляем значение вектора невязки, которое будет использоваться на
+следующей итерации:
+\begin{equation}
+    r_{k+1}  = r - \alpha * Ap
+\end{equation}
+\item Вычисляем коэффициент $\beta$:
+\begin{equation}
+    \beta  = \frac{(r_{k+1},r_{k+1})}{(r,r)}
+\end{equation}
+\item Находим новое значение градиента:
+\begin{equation}
+   p = r_{k+1} + \beta * p
+\end{equation}
+\end{enumerate} 
+\par Поскольку минимизируемый функционал квадратичный, то процесс должен дать ответ на n-й итерации, однако при реализации метода на компьютере существует погрешность представления вещественных чисел, в результате чего может потребоваться и больше итераций. На практике чаще всего используют следующий критерий остановки:
+\begin{equation}
+  || r_k || < \epsilon
+\end{equation}
+\par Критерии остановки итерационных методов: остановка по точности и остановку по числу итераций.
+\begin{enumerate}
+    \item если достигнутая точность метода:
+    \begin{equation}
+     || r_k - r_{k-1} || < \epsilon
+    \end{equation}
+    \item если достигнуто максимальное число итераций: $k = n$, где n - размер системы. При этом $x_n$ трактуется как полученное решение.
+\end{enumerate}
+
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par При разработке параллельного варианта метода сопряженных градиентов для решения систем линейных уравнений в первую очередь следует учесть, что выполнение итераций метода осуществляется последовательно и, тем самым, наиболее целесообразный подход состоит в распараллеливании вычислений, реализуемых в ходе выполнения итераций. Самой ресурсоёмкой операцией в алгоритме метода сопряженных градиентов является умножение матрицы на вектор, поэтому целесообразно воспользоваться ленточным разбиением матрицы для обработки каждым процессом своей части.
+\par Дополнительные вычисления, имеющие меньший порядок сложности, представляют собой различные операции обработки векторов (скалярное произведение, сложение и вычитание, умножение на скаляр). Организация этих вычислений заключается в разделении необходимых векторов на блоки, согласованных по размеру и положению с частью матрицы текущего процесса
+\par Каждый процесс из общего числа процессов, участвующих в решении системы линейных уравнений размерности n, получает по $quotient = \frac{\text{n}}{\text{общее количество процессов}}$ строк. Если при делении образуется остаток, то эти оставшиеся точки отдаём на обработку процессу с рангом 0, тогда он получает $quotient + n \%$ (общее количество процессов). При необходимости процессы обмениваются информацией, посредством выполнения операций передачи сообщений.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла conjugate\_gradient\_method.h и двух файлов исходного кода conjugate\_gradient\_method.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного решения системы линейных алгебраических уравнений методом сопряженных градиентов,а также функции,создающие и заполняющие матрицу и вектор,заполненные псевдослучанйми числами и функции скалярного умножения, умножения матрицы на вектор.
+\par Функция создания матрицы:
+\begin{lstlisting}
+std::vector<double> create_random_matrix(int size_n);
+\end{lstlisting}
+Принимает на вход размерность матрицы. Создает симметричную матрицу, заполненную
+псевдослучайными элементами.
+\par Функция создания вектора:
+\begin{lstlisting}
+std::vector<double> create_random_vector(int size_n);
+\end{lstlisting}
+Принимает на вход размерность вектора. Создает вектор, заполненный псевдослучайными элементами.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+std::vector<double> lin_gradient_method(const std::vector<double>& mtrx, const std::vector<double>& v, int size_n);
+\end{lstlisting}
+Принимает на вход матрицу коэффициентов системы, вектор правой части, а также размерность системы.Возвращает вектор, как результат последовательного выполнения алгоритма метода сопряженных градиентов. 
+\par Функция для параллельного алгоритма:
+\begin{lstlisting}
+std::vector<double> parall_gradient_method(const std::vector<double>& mtrx, const std::vector<double>& v, int size_n);
+\end{lstlisting}
+Входные данные аналогичны предыдущему пункту. Возвращает вектор, как результат параллельного выполнения алгоритма метода сопряженных градиентов
+\par В файле исходного кода conjugate\_gradient\_method.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью Google C++ Testing Framework мной было разработано 6 тестов: тесты на проверку вспомогательных методов, а именно тесты на проверку корректность работы функции скалярного умножении и матрицы на вектор. К проверке основных методов относится тест на правильность работы последовательного алгоритма метода сопряженных градиентов на заранее заданной системе с известным ответом – результат, полученный по заранее известным входным данным, сравнивается с эталонным. Таким же способом проверяется параллельный алгоритм. Также корректность параллельного алгоритма проверяется на матрице,заполненной псевдослучанйми элементми, и затем сравнивается с результом,полученным при последовательном варианте решения.Результаты работы алгоритмов должны совпасть.
+\par Успешное прохождение всех тестов доказывает корректность работы работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельного варианта
+метода сопряженных градиентов для решения систем линейных уравнений с симметричной положительно определенной матрицей  проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i3-7020U CPU, 2.30GHz ;
+\item Оперативная память: 8 ГБ (DDR4), 2.30GHz;
+\item Операционная система: Windows 10 Домашняя.
+\end{itemize}
+
+\par Эксперименты проводились на матрице,различного размера, на 2 процессах (см. Таблицу 1), и на 4 процессах (см. Таблицу 2).
+
+\par Результаты экспериментов представлены в Таблице 1 и в Таблице 2.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов для 2 процессов}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Размер матрицы & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+500        & 0.570314   & 0.339125    & 1.68172       \\
+1000       & 13.9174    & 8.55173     & 1.62744       \\
+1500       & 30.3931    & 17.6343     & 1.72353       \\
+2000       & 109.818    & 63.5724     & 1.72744       \\
+2500       & 251.4      & 150.978     & 1.66514       \\
+3000       & 363,4761   & 206,3646    & 1.76133      \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов для 4 процессов}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Размер матрицы & Время работы последовательного алгоритма (в секундах) & 
+Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+500        & 0.51126    & 0.270106    & 1.89281       \\
+1000       & 14.5627    & 8.25571     & 1.76395       \\
+1500       & 37.9486    & 20.3154     & 1.86797       \\
+2000       & 112.576    & 57.6738     & 1.95194       \\
+2500       & 175.758    & 80.574      & 2.18132       \\
+3000       & 334.736    & 122.41      & 2.73455       \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+По данным, полученным в результате экспериментов(см. Таблицу 1,2), можно сделать вывод о том, что параллельный случай работает значительно быстрее, чем последовательный. Причем при увеличении числа процессов заметно, что ускорение возрастает. Это объясняется тем, что основная вычислительная нагрузка происходит при умножении матрицы на вектор, а эта операция хорошо распараллеливается. Обмен данными, который происходит в ходе выполнения итераций, вносит незначительный вклад в общее время работы по сравнению со временем умножением матрицы на вектор, поэтому несущественно замедляет программу при больших объемах данных.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы для решения систем линейных алгебраических уравнений методом сопряженных градиентов. Проведенные тесты доказали корректность разработанной программы.Основной задачей же лабораторной работы была реализация параллельной версии алгоритма. Эта задача была успешно достигнута, о чем свидетельствуют результаты вычислительных экспериментов. Они показывают, что параллельный случай эффективнее, чем последовательный.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Гергель В.П. Высокопроизводительные вычисления дл многоядерных многопроцессорных систем. Учебное пособие – Нижний Новгород; Изд-во ННГУ им. Н.И.Лобачевского, 2010 
+\item Интернет-Университет Суперкомпьютерных Технологий: Теория и практика параллельных вычислений - Электронный ресурс. \newline URL: https://intuit.ru/studies/courses/1156/190/info
+\item Центр Суперкомпьютерных технологий - Электронный ресурс.\newline URL: http://www.hpcc.unn.ru/?dir=4
+\item Белов С.А., Золотых Н.Ю. Численные методы линейной алгебры. –Н.Новгород, Изд-во ННГУ, 2005. 
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+conjugate\_gradient\_method.h
+\begin{lstlisting}
+// Copyright 2021 Bakalina Darya
+#ifndef MODULES_TASK_3_BAKALINA_D_CONJUGATE_GRADIENT_METHOD_CONJUGATE
+_GRADIENT_METHOD_H_
+#define MODULES_TASK_3_BAKALINA_D_CONJUGATE_GRADIENT_METHOD_CONJUGATE
+_GRADIENT_METHOD_H_
+
+#include <vector>
+std::vector<double> create_random_vector(int size_n);
+std::vector<double> create_random_matrix(int size_n);
+double scalar_multiply(const std::vector<double>& vctr_x, const std::vector<double>& vctr_y);
+std::vector<double> multiply_mtrx_to_v(const std::vector<double>& mtrx, const std::vector<double>& v);
+std::vector<double> lin_gradient_method(const std::vector<double>& mtrx, const std::vector<double>& v, int size_n);
+std::vector<double> parall_gradient_method(const std::vector<double>& mtrx, const std::vector<double>& v, int size_n);
+#endif  // MODULES_TASK_3_BAKALINA_D_CONJUGATE_GRADIENT_METHOD_CONJUGATE
+_GRADIENT_METHOD_H_
+\end{lstlisting}
+conjugate\_gradient\_method.cpp
+\begin{lstlisting}
+// Copyright 2021 Bakalina Darya
+#include <mpi.h>
+#include <iostream>
+#include <vector>
+#include <random>
+#include "../../../modules/task_3/bakalina_d_conjugate
+_gradient_method/conjugate_gradient_method.h"
+std::vector<double> create_random_vector(int size_n) {
+    if (size_n <= 0) {
+        throw "Wrong size";
+    }
+    std::vector <double> v(size_n);
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    for (int i = 0; i < size_n; ++i) {
+        v[i] = gen() % 100;
+    }
+    return v;
+}
+
+std::vector<double> create_random_matrix(int size_n) {
+    if (size_n <= 0) {
+        throw " Wrong size";
+    }
+    std::vector <double> mtrx(size_n * size_n);
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    for (int i = 0; i < size_n; ++i) {
+        for (int j = i; j < size_n; ++j) {
+            mtrx[i * size_n + j] = mtrx[j * size_n + i] = gen() % 100;
+        }
+    }
+    return mtrx;
+}
+double scalar_multiply(const std::vector<double>& vctr_x, const std::vector<double>& vctr_y) {
+    double sclr_res = 0;
+    for (size_t i = 0; i < vctr_x.size(); ++i) {
+        sclr_res += vctr_x[i] * vctr_y[i];
+    }
+    return sclr_res;
+}
+
+std::vector<double> multiply_mtrx_to_v(const std::vector<double>& mtrx, const std::vector<double>& v) {
+    std::vector<double> lin_res(mtrx.size() / v.size());
+    for (size_t i = 0; i < mtrx.size() / v.size(); ++i) {
+        lin_res[i] = 0;
+        for (size_t j = 0; j < v.size(); ++j) {
+            lin_res[i] += mtrx[i * v.size() + j] * v[j];
+        }
+    }
+    return lin_res;
+}
+
+std::vector<double> lin_gradient_method(const std::vector<double>& mtrx, const std::vector<double>& v, int size_n) {
+    std::vector<double> r_cur(size_n);
+    std::vector<double> r_nxt(size_n);
+    int flag = 0;
+    double prov_sqrt = 0;
+    double epsilon = 0.01, b = 0.0, alfa = 0.0;
+    std::vector<double> lin_res(size_n);
+    for (int i = 0; i < size_n; i++) {
+        lin_res[i] = 1;
+    }
+    std::vector<double> A = multiply_mtrx_to_v(mtrx, lin_res);
+    for (int i = 0; i < size_n; i++) {
+        r_cur[i] = v[i] - A[i];
+    }
+    std::vector<double> p(r_cur);
+    do {
+        flag++;
+        A = multiply_mtrx_to_v(mtrx, p);
+        alfa = scalar_multiply(r_cur, r_cur) / scalar_multiply(p, A);
+        for (int i = 0; i < size_n; i++) {
+            lin_res[i] += alfa * p[i];
+            r_nxt[i] = r_cur[i] - alfa * A[i];
+        }
+        b = scalar_multiply(r_nxt, r_nxt) / scalar_multiply(r_cur, r_cur);
+        prov_sqrt = sqrt(scalar_multiply(r_nxt, r_nxt));
+        for (int j = 0; j < size_n; j++) {
+            p[j] = r_nxt[j] + b * p[j];
+        }
+        r_cur = r_nxt;
+    } while ((prov_sqrt > epsilon) && (flag <= size_n));
+    return lin_res;
+}
+
+std::vector<double> parall_gradient_method(const std::vector<double>& mtrx, const std::vector<double>& v, int size_n) {
+    int ProcNum = 0, ProcRank = 0;
+    int flag = 0;
+    double prov_sqrt = 0;
+    double epsilon = 0.01, b = 0.0, alfa = 0.0;
+    double r_nxtSclr;
+    double rcvbufF_curr, rcvbufF_nxt, r_currSclr, znmtl;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    std::vector<double> mtrx_parl = mtrx;
+    std::vector<double> v_parl = v;
+    std::vector<double> parl_res(size_n);
+    for (int i = 0; i < size_n; i++) {
+        parl_res[i] = 1;
+    }
+    int quotient = size_n / ProcNum;
+    int resd = size_n % ProcNum;
+    MPI_Bcast(mtrx_parl.data(), size_n * size_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(v_parl.data(), size_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    std::vector<double> mtrx_A0(quotient * size_n);
+    if (ProcRank == 0) {
+        if (resd != 0) {
+            mtrx_A0.resize(size_n * quotient + resd * size_n);
+        }
+        if (quotient != 0) {
+            for (int ProcCount = 1; ProcCount < ProcNum; ProcCount++) {
+                MPI_Send(&mtrx_parl[0] + ProcCount * quotient * size_n + resd * size_n,
+                    quotient * size_n, MPI_DOUBLE, ProcCount, 1, MPI_COMM_WORLD);
+            }
+        }
+    }
+    if (ProcRank == 0) {
+        if (resd != 0) {
+            for (int i = 0; i < size_n * quotient + size_n * resd; i++) {
+                mtrx_A0[i] = mtrx_parl[i];
+            }
+        } else {
+            for (int i = 0; i < size_n * quotient; i++) {
+                mtrx_A0[i] = mtrx_parl[i];
+            }
+        }
+    } else {
+        MPI_Status status;
+        if (quotient != 0) {
+            MPI_Recv(&mtrx_A0[0], quotient * size_n, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, &status);
+        }
+    }
+    std::vector<double> A = multiply_mtrx_to_v(mtrx_A0, parl_res);
+    std::vector<double> r_cur(quotient), r_nxt(quotient);
+    std::vector<double> p(size_n);
+    if (ProcRank == 0) {
+        if (resd != 0) {
+            r_cur.resize(quotient + resd);
+            r_nxt.resize(quotient + resd);
+        }
+        for (int i = 0; i < quotient + resd; i++)
+            r_cur[i] = v_parl[i] - A[i];
+    } else {
+        for (int i = 0; i < quotient; i++)
+            r_cur[i] = v_parl[ProcRank * quotient + resd + i] - A[i];
+    }
+    if (ProcRank == 0) {
+        if (resd != 0) {
+            for (int i = 0; i < quotient + resd; i++) {
+                p[i] = r_cur[i];
+            }
+        } else {
+            for (int i = 0; i < quotient; i++) {
+                p[i] = r_cur[i];
+            }
+        }
+        if (quotient != 0) {
+            MPI_Status status;
+            for (int ProcCount = 1; ProcCount < ProcNum; ProcCount++) {
+                MPI_Recv(&p[0] + ProcCount * quotient + resd,
+                    quotient, MPI_DOUBLE, ProcCount, 2, MPI_COMM_WORLD, &status);
+            }
+        }
+    } else {
+        if (quotient != 0) {
+            MPI_Send(&r_cur[0], quotient, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD);
+        }
+    }
+    MPI_Bcast(p.data(), size_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    std::vector<double> p_part(quotient);
+    std::vector<double> p_res(quotient);
+    if (ProcRank == 0) {
+        if (resd != 0) {
+            p_part.resize(quotient + resd);
+        }
+    }
+    do {
+        flag++;
+        A = multiply_mtrx_to_v(mtrx_A0, p);
+        if (ProcRank == 0) {
+            for (int i = 0; i < quotient + resd; i++) {
+                p_part[i] = p[i];
+            }
+        } else {
+            for (int i = 0; i < quotient; i++) {
+                p_part[i] = p[ProcRank * quotient + resd + i];
+            }
+        }
+        rcvbufF_curr = scalar_multiply(r_cur, r_cur);
+        rcvbufF_nxt = scalar_multiply(p_part, A);
+        MPI_Allreduce(&rcvbufF_curr, &r_currSclr, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&rcvbufF_nxt, &znmtl, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        alfa = r_currSclr / znmtl;
+        for (int i = 0; i < size_n; i++) {
+            parl_res[i] += alfa * p[i];
+        }
+        if (ProcRank == 0) {
+            for (int i = 0; i < quotient + resd; i++) {
+                r_nxt[i] = r_cur[i] - alfa * A[i];
+            }
+        } else {
+            for (int i = 0; i < quotient; i++) {
+                r_nxt[i] = r_cur[i] - alfa * A[i];
+            }
+        }
+        rcvbufF_curr = scalar_multiply(r_nxt, r_nxt);
+        MPI_Allreduce(&rcvbufF_curr, &r_nxtSclr, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        b = r_nxtSclr / r_currSclr;
+        prov_sqrt = sqrt(r_nxtSclr);
+        if (ProcRank == 0) {
+            for (int i = 0; i < quotient + resd; i++) {
+                p[i] = r_nxt[i] + b * p[i];
+            }
+            if (quotient != 0) {
+                MPI_Status status;
+                for (int ProcCount = 1; ProcCount < ProcNum; ProcCount++) {
+                    MPI_Recv(&p[0] + ProcCount * quotient + resd,
+                        quotient, MPI_DOUBLE, ProcCount, 3, MPI_COMM_WORLD, &status);
+                }
+            }
+        } else {
+            for (int i = 0; i < quotient; i++) {
+                p_res[i] = r_nxt[i] + b * p[ProcRank * quotient + resd + i];
+            }
+            if (quotient != 0) {
+                MPI_Send(&p_res[0], quotient, MPI_DOUBLE, 0, 3, MPI_COMM_WORLD);
+            }
+        }
+        MPI_Bcast(p.data(), size_n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        r_cur = r_nxt;
+    } while ((prov_sqrt > epsilon) && (flag <= size_n));
+    return parl_res;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Bakalina Darya
+#include <gtest/gtest.h>
+#include <vector>
+#include "./conjugate_gradient_method.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Parallel_Operations_MPI, scalar_multiply_work_correct) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    int n = 3;
+    std::vector<double> v1(n);
+    std::vector<double> v2(n);
+    double correct_res = 46;
+    v1[0] = 9;
+    v1[1] = 8;
+    v1[2] = 7;
+    v2[0] = 1;
+    v2[1] = 2;
+    v2[2] = 3;
+    if (ProcRank == 0) {
+        double result = scalar_multiply(v1, v2);
+        ASSERT_EQ(correct_res, result);
+    }
+}
+
+TEST(Parallel_Operations_MPI, multiply_mtrx_to_v_work_correct) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    int n = 3;
+    std::vector<double> v(n);
+    std::vector<double> mtrx(n * n);
+    std::vector<double> correct_res(n);
+    v[0] = 1;
+    v[1] = 1;
+    v[2] = 1;
+    mtrx[0] = 1;
+    mtrx[1] = 2;
+    mtrx[2] = 3;
+    mtrx[3] = 4;
+    mtrx[4] = 5;
+    mtrx[5] = 6;
+    mtrx[6] = 7;
+    mtrx[7] = 8;
+    mtrx[8] = 9;
+    correct_res[0] = 6;
+    correct_res[1] = 15;
+    correct_res[2] = 24;
+    if (ProcRank == 0) {
+        std::vector<double> multpl_res = multiply_mtrx_to_v(mtrx, v);
+        for (size_t i = 0; i < multpl_res.size(); i++)
+            ASSERT_EQ(correct_res[i], multpl_res[i]);
+    }
+}
+TEST(Parallel_Operations_MPI, lin_gradient_method_in_small_matrix) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    int n = 2;
+    std::vector<double> v(n);
+    std::vector<double> mtrx(n * n);
+    std::vector<double> correct_res(n);
+    v[0] = 3;
+    v[1] = 7;
+    mtrx[0] = 3;
+    mtrx[1] = -1;
+    mtrx[2] = -1;
+    mtrx[3] = 3;
+    correct_res[0] = 2;
+    correct_res[1] = 3;
+    if (ProcRank == 0) {
+        std::vector<double> lin_res = lin_gradient_method(mtrx, v, n);
+        for (size_t i = 0; i < lin_res.size(); i++)
+            ASSERT_NEAR(correct_res[i], lin_res[i], 0.5);
+    }
+}
+
+TEST(Parallel_Operations_MPI, parall_gradient_method_in_small_matrix) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    int n = 2;
+    std::vector<double> v(n);
+    std::vector<double> mtrx(n * n);
+    std::vector<double> correct_res(n);
+    v[0] = 3;
+    v[1] = 7;
+    mtrx[0] = 3;
+    mtrx[1] = -1;
+    mtrx[2] = -1;
+    mtrx[3] = 3;
+    correct_res[0] = 2;
+    correct_res[1] = 3;
+    std::vector<double> parl_res = parall_gradient_method(mtrx, v, n);
+    if (ProcRank == 0) {
+        for (size_t i = 0; i < parl_res.size(); i++)
+            ASSERT_NEAR(correct_res[i], parl_res[i], 0.5);
+    }
+}
+TEST(Parallel_Operations_MPI, linear_and_parallel_method_are_the_same_in_random_matrix_size_10) {
+    int ProcRank;
+    int n = 10;
+    std::vector<double> v;
+    std::vector<double> mtrx;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    v = create_random_vector(n);
+    mtrx = create_random_matrix(n);
+    std::vector<double> parl_res = parall_gradient_method(mtrx, v, n);
+    if (ProcRank == 0) {
+        std::vector<double> lin_res = lin_gradient_method(mtrx, v, n);
+        for (size_t i = 0; i < lin_res.size(); i++) {
+            ASSERT_NEAR(lin_res[i], parl_res[i], 0.5);
+        }
+    }
+}
+TEST(Parallel_Operations_MPI, linear_and_parallel_method_are_the_same_in_random_matrix) {
+    int ProcRank;
+    int n = 30;
+    std::vector<double> v;
+    std::vector<double> mtrx;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    v = create_random_vector(n);
+    mtrx = create_random_matrix(n);
+    std::vector<double> parl_res = parall_gradient_method(mtrx, v, n);
+    if (ProcRank == 0) {
+        std::vector<double> lin_res = lin_gradient_method(mtrx, v, n);
+        for (size_t i = 0; i < lin_res.size(); i++) {
+            ASSERT_NEAR(lin_res[i], parl_res[i], 0.7);
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
