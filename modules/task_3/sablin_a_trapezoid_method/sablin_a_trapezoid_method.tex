@@ -1,0 +1,560 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm, parsep=0pt}
+
+\lstset{
+    language=C++,
+	basicstyle=\footnotesize,
+	keywordstyle=\color{blue}\ttfamily,
+	stringstyle=\color{red}\ttfamily,
+	commentstyle=\color{green}\ttfamily,
+	morecomment=[l][\color{magenta}]{\#}, 
+	tabsize=4,
+	breaklines=true,
+	breakatwhitespace=true,
+	title=\lstname,       
+}
+
+\begin{document}
+
+\begin{titlepage}
+
+    \begin{center}
+    Министерство образования и науки Российской Федерации\\
+    Федеральное государственное автономное образовательное учреждение  \\
+    высшего образования\\
+    \textbf{<<Национальный исследовательский\\Нижегородский государственный университет им. Н.И. Лобачевского>>}\\
+    \textbf{(ННГУ)}\\[0.5cm]%[4.5cm]
+    \textbf{Институт информационных технологий математики и механики}\\[0.5cm]
+    \textbf{\large Отчет по лабораторной работе} \\[0.6cm] % название работы, затем отступ 0,6см
+    \textbf{Тема:}\\
+    \textbf{\large «Вычисление многомерных интегралов сиспользованием многошаговой схемы (метод трапеций).»}\\[2.5cm]
+
+    \vspace{4em}
+
+    \begin{flushright}
+    \begin{minipage}{0.55\textwidth}
+    \begin{flushleft}
+        \textbf{Выполнил:} \\
+        студент группы 381906-2\\
+        Саблин А.В.\\
+        \textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А.В.\\
+    \end{flushleft}
+    \end{minipage}
+    \end{flushright}
+    
+    \vfill
+ 
+    Нижний Новгород \\ 2021
+
+\end{center}
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Задача вычисления определенного интеграла I для некоторой заданной на отрезке [a, b] функции f(x) является классической задачей математического анализа.
+\par Зачастую приходится использовать приближенные формулы для вычисления определенного интеграла на основе значений подынтегральной функции f(x), так как нахождение значения интеграла с помощью формулы Ньютона - Лейбница $\int_a^b f(x)dx$ = F(b) - F(a) чревато некоторыми вычислительными сложностями. Такие специальные приближенные формулы называют квадратурными формулами или формулами численного интегрирования.
+\par Большинство методов численного интегрирования, объединены общим принципом: область интегрирования разбивается по каждой из осей на равное количество частей. В каждой из полученных маленьких областей интеграл приближается простой функцией (например, линейной), значение которой вычисляется явно (путем вычисления подынтегрального выражения в одной или нескольких точках). Ввиду линейности оператора интегрирования по областям полученные значения суммируются и представляют собой результат интегрирования.
+\par К данному типу относятся одномерные метод прямоугольников, метод трапеций, метод парабол (метод Симпсона). Перечисленные методы обобщается и для многомерного случая.
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы необходимо реализовать последовательную и параллельную версии реализации вычисления приближенного значения многомерных (в случае данной реализации - двумерных) интегралов при помощи метода трапеций. Для реализации параллельной версии метода нужно использовать библиотеку межпроцессорного взаимодействия MPI.
+\par А также:
+\begin{itemize}
+    \item Протестировать алгоритмы с помощью тестов, реализованных на Google C++ Testing Framework. 
+    \item Провести эксперименты для оценки эффективности параллелизации и по полученным результатам сделать выводы.
+\end{itemize}
+
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Так как концепция она и та же, проясним смысл алгоритма на примере одномерного определенного интеграла. Итак, предположим, что наша цель состоит в нахождении приближенного численного значения определенного интеграла $\int_a^b f(x)dx$, при условии, что функция $y = f(x)$ непрерывна на отрезке $[a;b]$. Для этого разделим отрезок $[a;b]$ на несколько равных отрезков в количестве n. Длина отрезка - $h$, вычисляется по формуле $h=\frac{b-a}{n}$. Тогда имеет место разбиение: $a=x0<x_1<x_2<...<x_{n-1}<x_n=b$.
+\par Далее нам остается лишь определить узлы из равенства $x_i=a+i * h$, где $i=0, 1,..., n$.
+\par Рассмотрим множество элементарных отрезков, а именно множество узлов $[x_{i-1}; x_i]$, $i=1, 2,.., n$ и вычислим приближенное значение исходного определенного интеграла с помощью этой формулы: $h*\sum\limits_{i=1}^n\frac{(f(x_{i-1})+f(x_i))}{2}$.
+\newpage
+
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+В лабораторной работе осуществляется распараллеливание многомерного интеграла на заданное число процессов. 
+\par Каждый процесс получает пределы интегрирования функции, количество отрезков разбиения и подынтегральную функцию. После процессы вычисляют величины $h_x$, $h_y$ и принимаются к определению множества точек. Представим поле наших вычислений в виде сетки (пересечение множества $a_x=x_0<x_1<x_2<...<x_{n-1}<x_{n}=b_x$ и множества $a_y=x_0<y_1<y_2<...<y_{n-1}<y_{n}=b_y$), тогда нам нужно определить каждый узел этой сетки (вычислить функцию в точке), умножить его на $h$ и поделить на $1/2^j$, где $j$ зависит от количества примыкающих к узлу клеток (1-клетка: $j=2$, 2-клетки: $j=1$ и 4-клетки $j=0$). Все полученные результаты нужно сложить и получится приближенное значение интеграла. По сетке мы будем идти по $x$-ам, которые разделяются между процессами посредством начальной точки счёта, которая вычисляется для каждого процесса по формуле: $x = a_x + h_x * (ProcRank + 1)$, и сдвига равного количеству процессов $ProcRank$.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+	Программа состоит из заголовочного файла trapezoid\_method.h, в котором объявлены функции:
+	\begin{lstlisting}
+	double trapezoidMethodSequential(double (*f)(double, double), double a_x, double b_x, double a_y, double b_y, const int n);\end{lstlisting}\par- вычисление многомерного интеграла методом трапеций, последовательная версия.
+    \begin{lstlisting}
+	double trapezoidMethodParallel(double (*f)(double, double), double a_x, double b_x, double a_y, double b_y, const int n);\end{lstlisting}\par- вычисление многомерного интеграла методом трапеций, параллельная версия 
+	\par Где double (*f)(double, double) - подынтегральная функция;  double a\_x, double b\_x, double a\_y, double b\_y - пределы интегрирования; const int n - количество отрезков разбиения.
+	\par Также программа состоит из файла trapezoid\_method.cpp в котором содержится реализация функций и файла main.cpp в котором содержаться тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Корректность работы программы подтверждается шестью тестами:
+\begin{lstlisting}
+	TEST(Trapezoid_method_test, Test_function_1_n_10000);
+\end{lstlisting}\par - взятие двумерного интеграла от функции $sin(x) * cos(y)$ по области $x : [0, 3]$, $y : [0, 3]$ c числом разбиений равным 10000. 
+\begin{lstlisting}
+	TEST(Trapezoid_method_test, Test_function_2_n_10000);
+\end{lstlisting}\par - взятие двумерного интеграла от функции $x * y$ по области $x : [0, 3]$, $y : [0, 3]$ c числом разбиений равным 10000.
+\begin{lstlisting}
+    TEST(Trapezoid_method_test, Test_function_2_n_20000);
+\end{lstlisting}\par - взятие двумерного интеграла от функции $x * y$ по области $x : [0, 3]$, $y : [0, 3]$ c числом разбиений равным 20000.
+\begin{lstlisting}
+    TEST(Trapezoid_method_test, Test_function_3_n_10000);
+\end{lstlisting}\par - взятие двумерного интеграла от функции $pow(x, y)$ по области $x : [0, 3]$, $y : [0, 3]$ c числом разбиений равным 10000.
+\begin{lstlisting}
+    TEST(Trapezoid_method_test, Test_function_4_n_10000);
+\end{lstlisting}\par - взятие двумерного интеграла от функции $x * x + y * y$ по области $x : [0, 3]$, $y : [0, 3]$ c числом разбиений равным 10000.
+\begin{lstlisting}
+    TEST(Trapezoid_method_test, Test_function_5_n_10000);
+\end{lstlisting}\par - взятие двумерного интеграла от функции $1$ по области $x : [0, 3]$, $y : [0, 3]$ c числом разбиений равным 10000.
+\par Все тесты проходят проверку, что является доказательством корректной работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты для оценки эффективности проводились на ПК со следующими характеристиками:
+
+\begin{itemize}
+\item Процессор: Intel Core i5-9300H, количество ядер: $4$, количество потоков: $8$, базовая (используемая в экспериментах) тактовая частота $2,40$ ГГц, Кэш-память: $8$ МБ
+\item Оперативная память: $8$ ГБ (DDR4)
+\item Операционная система: Microsoft Windows $10$ 
+\end{itemize}
+
+\par В данном эксперименте было вычислено время работы для последовательной и параллельной схемы нахождения многомерных определенных интегралов. А именно: для подынтегральной функции $x * y$ с пределами интегрирования $x : [0, 3]$, $y : [0, 3]$ и количеством отрезков разбиения $n=10000$ и $n=20000$. Помимо этого посмотрим на поведение времени работы схем для более сложной функции $x^y$, $n=10000$.
+\par Результаты экспериментов представлены ниже.
+
+\begin{table}[!h]
+    \begin{tabular}{ | p{4cm} | p{4cm} | p{4cm} | p{4cm} | }
+    \hline
+    Кол-во\parпроцессов & Последовательный\parалгоритм, сек & Параллельный\parалгоритм, сек & Ускорение\\ \hline
+    2    & 0.150869 & 0.0787042 & 1.91691 \\ \hline
+    4    & 0.156857 & 0.0474068 & 3.30875\\ \hline
+    8    & 0.153752 & 0.0301618 & 5.09758 \\ \hline
+    9    & 0.153444 & 0.0504696 & 3.04032 \\ \hline
+    16   & 0.155987 & 0.0567708 & 2.74766 \\ \hline
+    \end{tabular}
+    \caption{Результаты вычислительных экспериментов функции $x * y$ при разбиении $n=10000$}
+\end{table}
+
+\begin{table}[!h]
+    \begin{tabular}{ | p{4cm} | p{4cm} | p{4cm} | p{4cm} | }
+    \hline
+    Кол-во\parпроцессов & Последовательный\parалгоритм, сек & Параллельный\parалгоритм, сек & Ускорение\\ \hline
+    2    & 0.60464 & 0.306754 & 1.97109 \\ \hline
+    4    & 0.60929 & 0.186803 & 3.26168\\ \hline
+    8    & 0.612074 & 0.115482 & 5.3002 \\ \hline
+    9    & 0.608349 & 0.133285 & 4.56427 \\ \hline
+    16   & 0.617208 & 0.15709 & 3.92902 \\ \hline
+    \end{tabular}
+    \caption{Результаты вычислительных экспериментов функции $x * y$ при разбиении $n=10000$}
+\end{table}
+\newpage
+\begin{table}[!h]
+    \begin{tabular}{ | p{4cm} | p{4cm} | p{4cm} | p{4cm} | }
+    \hline
+    Кол-во\parпроцессов & Последовательный\parалгоритм, сек & Параллельный\parалгоритм, сек & Ускорение\\ \hline
+    2    & 0.60464 & 0.306754 & 1.97109 \\ \hline
+    4    & 2.95745 & 0.941694 & 3.14057\\ \hline
+    8    & 2.96379 & 0.593524 & 4.99355 \\ \hline
+    9    & 2.84777 & 0.605192 & 4.70556 \\ \hline
+    16   & 2.91293 & 0.617306 & 4.51878 \\ \hline
+    \end{tabular}
+    \caption{Результаты вычислительных экспериментов более сложной функции $x^y$ при разбиении $n=10000$}
+\end{table}
+\par \textbf{Вывод:}
+\par Как мы можем заметить при увеличении числа процессов действительно наблюдается ускорение работы алгоритма, его можно назвать существенным. И чем сложнее функция, тем больше ускорение параллельной схемы относительно последовательной. На восьми процессах можно наблюдать обратную картину. Ускорение постепенно уменьшается. Это должно быть связано с конфигурацией используемого процессора, а именно с числом потоков, их на данном процессоре - 8.
+\par По мере увеличения числа процессов, ускорение будет уменьшаться и приближаться к цифрам меньше 1. Это связано с увеличением накладных расходов: происходит больше пересылок данных между процессами.
+\newpage
+
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе работы реализованы последовательная и параллельная версия алгоритма трапеций для вычисления многомерных интегралов. А также выполнены все поставленные подзадачи.
+\par Для подтверждения корректности работы программы написаны тесты с использованием Google C++ Testing Framework.
+\par Результаты проведенных экспериментов показывают, что параллельная реализация работает быстрее, чем последовательная. Также, ускорение времени работы параллельной схемы относительно последовательной, уменьшается достигнув числа процессов - 8 и уменьшается дальше вплоть до 1 и меньше.
+\newpage
+
+
+\begin{thebibliography}{1}
+    \addcontentsline{toc}{section}{Список литературы}
+    \bibitem{1} 
+    Панасенко А.Г. Методические указания к решению задач по
+    численному интегрированию : Учебно-методическое пособие /Калашников А.Л., Федоткин А.М., Фокина В.Н. - Нижний Новгород: Нижегородский госуниверситет, 2016. – 31 с.
+    \bibitem{2}
+    Воеводин В.В., Воеводин Вл.В. (2002). Параллельные вычисления. – СПб.: БХВ-Петербург.
+    \bibitem{3} 
+    Гергель В. П. Теория и практика параллельных вычислений. – 2007.
+\end{thebibliography}
+\newpage
+
+
+
+
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+trapezoid\_method.h
+\begin{lstlisting}
+// Copyright 2021 Sablin Alexander
+
+#ifndef MODULES_TASK_3_SABLIN_A_TRAPEZOID_METHOD_TRAPEZOID_METHOD_H_
+#define MODULES_TASK_3_SABLIN_A_TRAPEZOID_METHOD_TRAPEZOID_METHOD_H_
+
+double trapezoidMethodSequential(double (*f)(double, double), double a_x, double b_x,
+    double a_y, double b_y, const int n);
+double trapezoidMethodParallel(double (*f)(double, double), double a_x, double b_x,
+    double a_y, double b_y, const int n);
+
+#endif  //  MODULES_TASK_3_SABLIN_A_TRAPEZOID_METHOD_TRAPEZOID_METHOD_H_
+\end{lstlisting}
+trapezoid\_method.cpp
+\begin{lstlisting}
+// Copyright 2021 Sablin Alexander
+
+#include <mpi.h>
+#include "../../../modules/task_3/sablin_a_trapezoid_method/trapezoid_method.h"
+
+
+double trapezoidMethodSequential(double (*f)(double, double), double a_x, double b_x,
+    double a_y, double b_y, const int n) {
+  double ans = 0;
+  double x_h = (b_x - a_x) / n;
+  double y_h = (b_y - a_y) / n;
+
+  for (double x = a_x + x_h; x < b_x; x += x_h) {
+      double cur_ans = (f(x, a_y) + f(x, b_y)) / 2;
+      for (double y = a_y + y_h; y < b_y; y += y_h) {
+          cur_ans += f(x, y);
+      }
+      ans += cur_ans;
+  }
+
+  ans += (f(a_x, a_y) + f(a_x, b_y) + f(b_x, a_y) + f(b_x, b_y)) / 4;
+  for (double y = a_y + y_h; y < b_y; y += y_h) {
+      ans += (f(a_x, y) + f(b_x, y)) / 2;
+  }
+
+  return ans * x_h * y_h;
+}
+
+double trapezoidMethodParallel(double (*f)(double, double), double a_x, double b_x,
+    double a_y, double b_y, const int n) {
+  int ProcRank, ProcNum;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+  double ans_all;
+  double ans = 0.0;
+
+  double h_x = (b_x - a_x) / n;
+  double h_y = (b_y - a_y) / n;
+  double x;
+
+  x = a_x + h_x * (ProcRank + 1);
+
+  while (x < b_x) {
+      double cur_ans = (f(x, a_y) + f(x, b_y)) / 2;
+      for (double y = a_y + h_y; y < b_y; y += h_y) {
+          cur_ans += f(x, y);
+      }
+      ans += cur_ans;
+      x += h_x * ProcNum;
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+  MPI_Reduce(&ans, &ans_all, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+  if (ProcRank == 0) {
+      ans_all += (f(a_x, a_y) + f(a_x, b_y) + f(b_x, a_y) + f(b_x, b_y)) / 4;
+      for (double y = a_y + h_y; y < b_y; y += h_y) {
+          ans_all += (f(a_x, y) + f(b_x, y)) / 2;
+      }
+  }
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  return ans_all * h_x * h_y;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Sablin Alexander
+
+#include <gtest/gtest.h>
+#include <cmath>
+#include <gtest-mpi-listener.hpp>
+#include "../../../modules/task_3/sablin_a_trapezoid_method/trapezoid_method.h"
+
+
+double function_1(double x, double y) {
+  return sin(x) * cos(y);
+}
+
+double function_2(double x, double y) {
+  return x * y;
+}
+
+double function_3(double x, double y) {
+  return pow(x, y);
+}
+
+double function_4(double x, double y) {
+  return x * x + y * y;
+}
+
+double function_5(double x, double y) {
+  return 1;
+}
+
+TEST(Trapezoid_method_test, Test_function_1_n_10000) {
+    double (*f)(double, double) = function_1;
+    const int n = 10000;
+    double a_x = 0.0;
+    double b_x = 3.0;
+    double a_y = 0.0;
+    double b_y = 3.0;
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double start, finish, parallel_time, sequential_time, parallel_res, sequential_res;
+    if (ProcRank == 0) {
+        start = MPI_Wtime();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    parallel_res = trapezoidMethodParallel(f, a_x, b_x, a_y, b_y, n);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (ProcRank == 0) {
+        finish = MPI_Wtime();
+        parallel_time = finish - start;
+        start = MPI_Wtime();
+        sequential_res = trapezoidMethodSequential(f, a_x, b_x, a_y, b_y, n);
+        finish = MPI_Wtime();
+        sequential_time = finish - start;
+        std::cout << "------------------------------------------------------" << std::endl;
+        std::cout << "--- func : sin(x) * cos(y) " << std::endl;
+        std::cout << "--- n : 10000 " << std::endl;
+        std::cout << "--- Sequential time = " << sequential_time << std::endl;
+        std::cout << "--- Parallel time = " << parallel_time << std::endl;
+        std::cout << "--- Acceleration = " << sequential_time / parallel_time << std::endl;
+        std::cout << "------------------------------------------------------" << std::endl;
+        ASSERT_EQ(std::abs(parallel_res - sequential_res) < 0.015, true);
+    }
+}
+
+TEST(Trapezoid_method_test, Test_function_2_n_10000) {
+    double (*f)(double, double) = function_2;
+    const int n = 10000;
+    double a_x = 0.0;
+    double b_x = 3.0;
+    double a_y = 0.0;
+    double b_y = 3.0;
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double start, finish, parallel_time, sequential_time, parallel_res, sequential_res;
+    if (ProcRank == 0) {
+        start = MPI_Wtime();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    parallel_res = trapezoidMethodParallel(f, a_x, b_x, a_y, b_y, n);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (ProcRank == 0) {
+        finish = MPI_Wtime();
+        parallel_time = finish - start;
+        start = MPI_Wtime();
+        sequential_res = trapezoidMethodSequential(f, a_x, b_x, a_y, b_y, n);
+        finish = MPI_Wtime();
+        sequential_time = finish - start;
+        std::cout << "------------------------------------------------------" << std::endl;
+        std::cout << "--- func : x * y " << std::endl;
+        std::cout << "--- n : 10000 " << std::endl;
+        std::cout << "--- Sequential time = " << sequential_time << std::endl;
+        std::cout << "--- Parallel time = " << parallel_time << std::endl;
+        std::cout << "--- Acceleration = " << sequential_time / parallel_time << std::endl;
+        std::cout << "------------------------------------------------------" << std::endl;
+        ASSERT_EQ(std::abs(parallel_res - sequential_res) < 0.015, true);
+    }
+}
+
+TEST(Trapezoid_method_test, Test_function_2_n_20000) {
+    double (*f)(double, double) = function_2;
+    const int n = 20000;
+    double a_x = 0.0;
+    double b_x = 3.0;
+    double a_y = 0.0;
+    double b_y = 3.0;
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double start, finish, parallel_time, sequential_time, parallel_res, sequential_res;
+    if (ProcRank == 0) {
+        start = MPI_Wtime();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    parallel_res = trapezoidMethodParallel(f, a_x, b_x, a_y, b_y, n);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (ProcRank == 0) {
+        finish = MPI_Wtime();
+        parallel_time = finish - start;
+        start = MPI_Wtime();
+        sequential_res = trapezoidMethodSequential(f, a_x, b_x, a_y, b_y, n);
+        finish = MPI_Wtime();
+        sequential_time = finish - start;
+        std::cout << "------------------------------------------------------" << std::endl;
+        std::cout << "--- func : x * y " << std::endl;
+        std::cout << "--- n : 20000 " << std::endl;
+        std::cout << "--- Sequential time = " << sequential_time << std::endl;
+        std::cout << "--- Parallel time = " << parallel_time << std::endl;
+        std::cout << "--- Acceleration = " << sequential_time / parallel_time << std::endl;
+        std::cout << "------------------------------------------------------" << std::endl;
+        ASSERT_EQ(std::abs(parallel_res - sequential_res) < 0.015, true);
+    }
+}
+
+TEST(Trapezoid_method_test, Test_function_3_n_10000) {
+    double (*f)(double, double) = function_3;
+    const int n = 10000;
+    double a_x = 0.0;
+    double b_x = 3.0;
+    double a_y = 0.0;
+    double b_y = 3.0;
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double start, finish, parallel_time, sequential_time, parallel_res, sequential_res;
+    if (ProcRank == 0) {
+        start = MPI_Wtime();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    parallel_res = trapezoidMethodParallel(f, a_x, b_x, a_y, b_y, n);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (ProcRank == 0) {
+        finish = MPI_Wtime();
+        parallel_time = finish - start;
+        start = MPI_Wtime();
+        sequential_res = trapezoidMethodSequential(f, a_x, b_x, a_y, b_y, n);
+        finish = MPI_Wtime();
+        sequential_time = finish - start;
+        std::cout << "------------------------------------------------------" << std::endl;
+        std::cout << "--- func : pow(x, y) " << std::endl;
+        std::cout << "--- n : 10000 " << std::endl;
+        std::cout << "--- Sequential time = " << sequential_time << std::endl;
+        std::cout << "--- Parallel time = " << parallel_time << std::endl;
+        std::cout << "--- Acceleration = " << sequential_time / parallel_time << std::endl;
+        std::cout << "------------------------------------------------------" << std::endl;
+        ASSERT_EQ(std::abs(parallel_res - sequential_res) < 0.015, true);
+    }
+}
+
+TEST(Trapezoid_method_test, Test_function_4_n_10000) {
+    double (*f)(double, double) = function_4;
+    const int n = 10000;
+    double a_x = 0.0;
+    double b_x = 3.0;
+    double a_y = 0.0;
+    double b_y = 3.0;
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double start, finish, parallel_time, sequential_time, parallel_res, sequential_res;
+    if (ProcRank == 0) {
+        start = MPI_Wtime();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    parallel_res = trapezoidMethodParallel(f, a_x, b_x, a_y, b_y, n);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (ProcRank == 0) {
+        finish = MPI_Wtime();
+        parallel_time = finish - start;
+        start = MPI_Wtime();
+        sequential_res = trapezoidMethodSequential(f, a_x, b_x, a_y, b_y, n);
+        finish = MPI_Wtime();
+        sequential_time = finish - start;
+        std::cout << "------------------------------------------------------" << std::endl;
+        std::cout << "--- func : x * x + y * y " << std::endl;
+        std::cout << "--- n : 10000 " << std::endl;
+        std::cout << "--- Sequential time = " << sequential_time << std::endl;
+        std::cout << "--- Parallel time = " << parallel_time << std::endl;
+        std::cout << "--- Acceleration = " << sequential_time / parallel_time << std::endl;
+        std::cout << "------------------------------------------------------" << std::endl;
+        ASSERT_EQ(std::abs(parallel_res - sequential_res) < 0.015, true);
+    }
+}
+
+TEST(Trapezoid_method_test, Test_function_5_n_10000) {
+    double (*f)(double, double) = function_5;
+    const int n = 10000;
+    double a_x = 0.0;
+    double b_x = 3.0;
+    double a_y = 0.0;
+    double b_y = 3.0;
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double start, finish, parallel_time, sequential_time, parallel_res, sequential_res;
+    if (ProcRank == 0) {
+        start = MPI_Wtime();
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    parallel_res = trapezoidMethodParallel(f, a_x, b_x, a_y, b_y, n);
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (ProcRank == 0) {
+        finish = MPI_Wtime();
+        parallel_time = finish - start;
+        start = MPI_Wtime();
+        sequential_res = trapezoidMethodSequential(f, a_x, b_x, a_y, b_y, n);
+        finish = MPI_Wtime();
+        sequential_time = finish - start;
+        std::cout << "------------------------------------------------------" << std::endl;
+        std::cout << "--- func : 1 " << std::endl;
+        std::cout << "--- n : 10000 " << std::endl;
+        std::cout << "--- Sequential time = " << sequential_time << std::endl;
+        std::cout << "--- Parallel time = " << parallel_time << std::endl;
+        std::cout << "--- Acceleration = " << sequential_time / parallel_time << std::endl;
+        std::cout << "------------------------------------------------------" << std::endl;
+        ASSERT_EQ(std::abs(parallel_res - sequential_res) < 0.015, true);
+    }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+\end{document}
