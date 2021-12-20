@@ -1,0 +1,559 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Повышение контраста полутонового изображения посредством линейной растяжки гистограммы»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Жарков А.А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Целью данной работы является разработка программы, 
+повышающей контраст полутонового изображения с пощощью линейной растяжки гистограммы. Разработаем алгоритм, позволяющий ускорить процесс обработки изображения, посредством разбиения данных на несколько частей.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\begin{enumerate} 
+    \item Реализовать последовательный алгоритм линейной растяжки гистограммы
+    \item Реализовать программу, разбивающая данные на несколько частей для дальнейшей обработки
+    \item Провести набор тестов. Сравнить и сопоставить производительность алгоритмов
+    \item Рассчитать теоретическое ускорение и эффективность
+\end{enumerate}
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+В данном алгоритме мы получаем вектор пикселей изображения. Далее делим количество пикселей на количество процессов, чтобы потом распараллелить вычисления. Затем в каждой части изображения находим максимальный и минимальный пиксель, чтобы потом воспользоваться формулой.\\
+$$
+f(y) = (y-{y_{min}})*(\frac{255}{y_{max}-y_{min}}) \\
+$$
+
+После того, как мы нашли максимум и минимум в локальном изображении, объеденим их в функцию, где будут найдены глобальные максимум и минимум. \\
+Потом к каждой части данных, которое мы разделили в начале, применим последовательный алгоритм растяжки, где к каждому пикселю будет применима формула выше. \\
+Затем вставим эти части в итоговое изображение и выведем его на экран.
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Вначале производится рассылка в каждый процесс N/size пикслей. Остаток от данного деления будет добавлен в нулевой процесс. \\
+\begin{enumerate} 
+    \item В каждом процессе будет запускаться цикл на поиск локального максимума и минимума; 
+    \item Полученные максимум и минимум будут отсылаться в функцию Reduce для вычисления глобальных соответсвенных переменных; 
+    \item На основании этих переменных будет выполняться цикл, в котором устанавливается пиксель итогового изображения. Все эти операции выполняются в своём процессе;
+    \item Далее выходные буферы будут отсылаться в корневой процесс для объединения всех частей в конечное изображение.
+\end{enumerate}
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+В программе используются функции, представленные ниже.
+\par Алгоритмы поиска локальных минимума и максимума:
+\begin{lstlisting}
+int get_local_min(int* local_img, int width, int height);
+int get_local_max(int* local_img, int width, int height);
+\end{lstlisting}
+ 
+\par Алгоритм последовательного вычисления линейной гистограммы:
+\begin{lstlisting}
+int* get_Sequential_lin_hist(int* image, int width, int height, int min, int max);
+\end{lstlisting}
+\par Алгоритм последовательного вычисления линейной гистограммы:
+\begin{lstlisting}
+int* get_Parallel_lin_hist(int* image, int width, int height);
+\end{lstlisting}
+\par В качестве входных параметров передаются ширина и высота матриц (вектора вещественных чисел) и сами веторы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельного алгоритма растяжки линейной гистограммы проводились на оборудовании со следующей аппаратной конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel Core i3 8100 3.6GHz
+\item Оперативная память: 16 GB 2667GHz
+\item ОС: Windows 10 Домашняя.
+\end{itemize}
+
+\par В рамках эксперимента было вычислено время работы последовательного и параллельного алгоритма линейной растяжки гистограммы {\itshape $A$} и {\itshape $B$}.
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 1000x1500}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+4        & 0.15271        & 0.11251   & 1.357284       \\
+9        & 0.01594        & 0.011423    & 1.32459       \\
+16       & 0.01589      & 0.011234    & 1.26854       
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 2000x3500}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+4        & 0.70993       & 0.044883    & 1.58751      \\
+9        & 0.073352       & 0.045212   & 1.62462      \\
+16       & 0.071345       & 0.42745    & 1.68342      
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 4000x6000}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+4        & 0.24215     & 0.152884   & 1.58331        \\
+9        & 0.24843      & 0,15354   & 1.59926      \\
+16       & 0.24764      & 0.14353   & 1.70342      
+\end{tabular}
+
+\end{table}
+\begin{table}[!h]
+\caption{Результаты экспериментов для матриц размером 7000x9000}
+\centering
+\begin{tabular}{lllll}
+Процессы & Последовательно & Параллельно & Ускорение  \\
+4        & 0.63853      & 0.402361   & 1.57942   \\
+9        & 0.64236     & 0.40231   & 1.63241       \\
+16       & 0.64232      & 0.37231   & 1.71233      
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для проверки правильности выполнения выполнения параллельного алгоритма, поэлементно проверим два вектора, выяисленные последовательным и параллельными прогрммами.
+\parДля подтверждения корректности в программе представлен набор тестов, разработанных с Google Testing Framework.
+\newpage
+
+% Выводы из результатов
+\section*{Выводы из результатов}
+\addcontentsline{toc}{section}{Выводы из результатов}
+\par По данным, полученным в результате проведения эксперимента, мы видим, что параллельный алгоритм работает эффективнее, чем последовательный алгоритм умножения матриц. Наибольшая эффективность достигается при
+сравнительно большом размере матриц. Чтобы достичь наибольшей эффективности, размер матрицы и количество процессов должны быть прямо пропорциональны друг другу.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения лабораторной работы, мы ознакомились с алгоритмом линейной растяжки гистограммы. По результатам экспериментов видно, что параллельная программа ускоряет работу примерно в 1.5 раза. Приобретены навыки в применении параллельного программирования с помощью {\itshape $MPI$}. Теперь перед нами стоит задача в применении приобретенных знаний в своей будущей профессиональной деятельности.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{hpccfox} [Электронный ресурс] // URL \url {https://docplayer.com/38837912-Glava-7-parallelnye-metody-matrichnogo-umnozheniya.html} (дата обращения: 01.12.2021)
+\bibitem{intuit} [Электронный ресурс] // URL: \url {http://edu.mmcs.sfedu.ru/file.php/74/MPIMatr.pdf} (дата обращения: 01.12.2021)
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// lin_hist.h
+// Copyright 2021 Zharkov Andrey
+#ifndef MODULES_TASK_3_ZHARKOV_A_LIN_HIST_LIN_HIST_H_
+#define MODULES_TASK_3_ZHARKOV_A_LIN_HIST_LIN_HIST_H_
+
+int* getRandomArr(int width, int height);
+int* get_Sequential_lin_hist(int* image, int width, int height, int min, int max);
+int* get_Parallel_lin_hist(int* image, int width, int height);
+int get_local_min(int* local_img, int width, int height);
+int get_local_max(int* local_img, int width, int height);
+
+#endif  // MODULES_TASK_3_ZHARKOV_A_LIN_HIST_LIN_HIST_H_
+
+\end{lstlisting}
+\newpage
+\begin{lstlisting}
+// lin_hist.cpp
+// Copyright 2021 Zharkov Andrey
+#include "../../../modules/task_3/zharkov_a_lin_hist/lin_hist.h"
+
+#include <mpi.h>
+
+#include <ctime>
+#include <random>
+
+int* getRandomArr(int width, int height) {
+  std::random_device dev;
+  std::mt19937 gen(dev());
+  int* img = new int[width * height];
+  for (int i = 0; i < width * height; i++) {
+    img[i] = gen() % 255;
+  }
+  return img;
+}
+int get_local_min(int* local_img, int width, int height) {
+  int min = local_img[0];
+  for (int i = 0; i < width * height; i++) {
+    if (local_img[i] < min) {
+      min = local_img[i];
+    }
+  }
+  return min;
+}
+int get_local_max(int* local_img, int width, int height) {
+  int max = local_img[0];
+  for (int i = 0; i < width * height; i++) {
+    if (local_img[i] > max) {
+      max = local_img[i];
+    }
+  }
+  return max;
+}
+int truncate(int value) {
+  if (value < 0) return 0;
+  if (value > 255.0) return 255;
+
+  return value;
+}
+int* get_Sequential_lin_hist(int* img, int width, int height, int min,
+                             int max) {
+  int* new_img = new int[width * height];
+
+  for (int i = 0; i < height; i++) {
+    for (int j = 0; j < width; j++) {
+      new_img[j + i * width] =
+          truncate((img[j + i * width] - min) * (255 / (max - min)));
+    }
+  }
+  return new_img;
+}
+int* get_Parallel_lin_hist(int* image, int width, int height) {
+  int size, rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  int delta = height / size;
+  int rem = height % size;
+  int local_min;
+  int local_max;
+  if (delta) {
+    if (rank == 0) {
+      for (int proc = 1; proc < size; proc++) {
+        MPI_Send(image + proc * delta * width + rem * width, delta * width,
+                 MPI_INT, proc, 0, MPI_COMM_WORLD);
+      }
+    }
+    int* local_img = nullptr;
+    if (rank == 0) {
+      local_img = new int[(delta + rem) * width];
+
+      for (int i = 0; i < (delta + rem) * width; i++) {
+        local_img[i] = image[i];
+      }
+
+      local_min = get_local_min(local_img, width, delta + rem);
+      local_max = get_local_max(local_img, width, delta + rem);
+
+    } else {
+      local_img = new int[delta * width];
+      MPI_Status status;
+      MPI_Recv(local_img, delta * width, MPI_INT, 0, 0, MPI_COMM_WORLD,
+               &status);
+
+      local_min = get_local_min(local_img, width, delta);
+      local_max = get_local_max(local_img, width, delta);
+    }
+    int min;
+    int max;
+    MPI_Reduce(&local_max, &max, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&local_min, &min, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
+
+    MPI_Bcast(&min, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&max, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    int* global_img = nullptr;
+    int temp = 0;
+    if (rank == 0) {
+      temp = rem;
+    }
+    local_img =
+        get_Sequential_lin_hist(local_img, width, delta + temp, min, max);
+    int *counts = new int[size], *displs = new int[size];
+    if (rank == 0) {
+      global_img = new int[width * height];
+      for (int i = 0; i < size; i++) {
+        if (i == 0) {
+          counts[i] = (delta + rem) * width;
+          displs[i] = 0;
+        } else {
+          counts[i] = delta * width;
+          displs[i] = (delta * i + rem) * width;
+        }
+      }
+    }
+    MPI_Gatherv(local_img, (delta + temp) * width, MPI_INT, global_img, counts,
+                displs, MPI_INT, 0, MPI_COMM_WORLD);
+
+    return global_img;
+  } else {
+    if (rank == 0) {
+      int min = get_local_min(image, width, height);
+      int max = get_local_max(image, width, height);
+      return get_Sequential_lin_hist(image, width, height, min, max);
+    } else {
+      return nullptr;
+    }
+  }
+}
+
+\end{lstlisting}
+\newpage
+\begin{lstlisting}
+// main.cpp
+// Copyright 2021 Zharkov Andrey
+#include <gtest/gtest.h>
+#include <vector>
+#include "./lin_hist.h"
+#include <gtest-mpi-listener.hpp>
+
+
+TEST(Parallel_Operations_MPI, 1000_1500) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int width = 1000;
+    int height = 1500;
+    int* img = nullptr;
+    if (rank == 0) {
+        img = getRandomArr(width, height);
+    }
+    double start = MPI_Wtime();
+    int *new_img_p = get_Parallel_lin_hist(img, width, height);
+    double end = MPI_Wtime();
+    double Parap_time = (end - start);
+    if (rank == 0) {
+      start = MPI_Wtime();
+        int min = get_local_min(img, width, height);
+        int max = get_local_max(img, width, height);
+        int* new_img_s = get_Sequential_lin_hist(img, width, height, min, max);
+        end = MPI_Wtime();
+        double Seq_time = (end - start);
+        for (int i = 0; i < width * height; i++) {
+            ASSERT_EQ(new_img_p[i], new_img_s[i]);
+        }
+        printf("Paral: %f\nSeq: %f\n", Parap_time, Seq_time);
+        double Eff = Seq_time / Parap_time;
+        printf("Effectiveness = %f\n", Eff);
+    }
+}
+TEST(Parallel_Operations_MPI, 2000_3500) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  int width = 2000;
+  int height = 3500;
+  int* img = nullptr;
+  if (rank == 0) {
+    img = getRandomArr(width, height);
+  }
+  double start = MPI_Wtime();
+  int* new_img_p = get_Parallel_lin_hist(img, width, height);
+  double end = MPI_Wtime();
+  double Parap_time = (end - start);
+  if (rank == 0) {
+    start = MPI_Wtime();
+    int min = get_local_min(img, width, height);
+    int max = get_local_max(img, width, height);
+    int* new_img_s = get_Sequential_lin_hist(img, width, height, min, max);
+    end = MPI_Wtime();
+    double Seq_time = (end - start);
+    for (int i = 0; i < width * height; i++) {
+      ASSERT_EQ(new_img_p[i], new_img_s[i]);
+    }
+    printf("Paral: %f\nSeq: %f\n", Parap_time, Seq_time);
+    double Eff = Seq_time / Parap_time;
+    printf("Effectiveness = %f\n", Eff);
+  }
+}
+TEST(Parallel_Operations_MPI, 4000_6000) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int width = 4000;
+    int height = 6000;
+    int* img = nullptr;
+    if (rank == 0) {
+        img = getRandomArr(width, height);
+    }
+    double start = MPI_Wtime();
+    int* new_img_p = get_Parallel_lin_hist(img, width, height);
+    double end = MPI_Wtime();
+    double Parap_time = (end - start);
+    if (rank == 0) {
+      start = MPI_Wtime();
+      int min = get_local_min(img, width, height);
+      int max = get_local_max(img, width, height);
+      int* new_img_s = get_Sequential_lin_hist(img, width, height, min, max);
+      end = MPI_Wtime();
+      double Seq_time = (end - start);
+      for (int i = 0; i < width * height; i++) {
+        ASSERT_EQ(new_img_p[i], new_img_s[i]);
+      }
+      printf("Paral: %f\nSeq: %f\n", Parap_time, Seq_time);
+      double Eff = Seq_time / Parap_time;
+      printf("Effectiveness = %f\n", Eff);
+    }
+}
+TEST(Parallel_Operations_MPI, 7000_9000) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int width = 7000;
+    int height = 9000;
+    int* img = nullptr;
+    if (rank == 0) {
+        img = getRandomArr(width, height);
+    }
+    double start = MPI_Wtime();
+    int* new_img_p = get_Parallel_lin_hist(img, width, height);
+    double end = MPI_Wtime();
+    double Parap_time = (end - start);
+    if (rank == 0) {
+      start = MPI_Wtime();
+      int min = get_local_min(img, width, height);
+      int max = get_local_max(img, width, height);
+      int* new_img_s = get_Sequential_lin_hist(img, width, height, min, max);
+      end = MPI_Wtime();
+      double Seq_time = (end - start);
+      for (int i = 0; i < width * height; i++) {
+        ASSERT_EQ(new_img_p[i], new_img_s[i]);
+      }
+      printf("Paral: %f\nSeq: %f\n", Parap_time, Seq_time);
+      double Eff = Seq_time / Parap_time;
+      printf("Effectiveness = %f\n", Eff);
+    }
+}
+TEST(Parallel_Operations_MPI, 10000_15000) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int width = 10000;
+    int height = 15000;
+    int* img = nullptr;
+    if (rank == 0) {
+        img = getRandomArr(width, height);
+    }
+    double start = MPI_Wtime();
+    int* new_img_p = get_Parallel_lin_hist(img, width, height);
+    double end = MPI_Wtime();
+    double Parap_time = (end - start);
+    if (rank == 0) {
+      start = MPI_Wtime();
+      int min = get_local_min(img, width, height);
+      int max = get_local_max(img, width, height);
+      int* new_img_s = get_Sequential_lin_hist(img, width, height, min, max);
+      end = MPI_Wtime();
+      double Seq_time = (end - start);
+      for (int i = 0; i < width * height; i++) {
+        ASSERT_EQ(new_img_p[i], new_img_s[i]);
+      }
+      printf("Paral: %f\nSeq: %f\n", Parap_time, Seq_time);
+      double Eff = Seq_time / Parap_time;
+      printf("Effectiveness = %f\n", Eff);
+    }
+}
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
