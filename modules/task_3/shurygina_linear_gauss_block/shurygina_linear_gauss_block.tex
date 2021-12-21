@@ -1,0 +1,529 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+        keywordstyle=\color{blue}\ttfamily,
+        stringstyle=\color{red}\ttfamily,
+        commentstyle=\color{green}\ttfamily,
+        morecomment=[l][\color{red}]{\#}, 
+        tabsize=4,
+        breaklines=true,
+        breakatwhitespace=true,
+        title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе № 3} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Линейная фильтрация изображений (блочное разбиение). Ядро Гаусса 3x3»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381908-1 \\ Шурыгина Анна\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Преподаватель:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Фильтры обработки изображений применяются для наложения различных эффектов, повышения качества изображений путём устранения ложных данных или улучшения характеристик.
+\par
+Фильтр Гаусса — фильтр размытия изображения, который использует нормальное распределение (также называемое Гауссовым распределением) для вычисления преобразования, применяемого к каждому пикселю изображения. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данном лабораторной работе необходимо реализовать параллельный алгоритм обработки изображения в оттенках серого, представленного в виде вектора, с помощью ядра Гаусса размером 3х3. Также требуется провести тестирование работоспособности алгоритма при помощи Google Tests
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Пусть дано изображение размером mxn.  
+Тогда каждому элементу изображения соответствует число, называемое весовым множителем. Совокупность всех весовых множителей составляет весовую функцию.
+Для однозначного определения центрального элемента, размер окна должен быть нечётным. Ядро свёртки позволяет усилить или ослабить компоненты изображения. Матрица перемещается по изображению, при этом весовая функция в процессе перемещения остаётся неизменной.От размера матрицы свёртки зависит степень размытия конечного изображения.
+\parВ каждой точке весовая функция поэлементно умножается на значение соответствующих пикселей исходного изображения и произведения суммируются. Полученная сумма присваивается тому пикселю нового изображения, который соответствует положению центра окна. Результат записывается во временную матрицу, чтобы исключить влияние обработанных пикселей на необработанные. Для этого используется нормальное (Гауссовое) распределение. 
+\parУравнение распределения Гаусса в N измерениях в общем случае имеет вид:
+\par $$G(\xi) = \frac{1}{\sqrt{2\pi }\sigma }e^{-\frac{(x-a)^2}{2\sigma ^2}}$$
+
+\par  У крайних пикселей изображения всегдаотсутствуют некоторые соседние пиксели, следовательно, нет данных для полных вычислений. Это обходится либо применением фильтра только к части изображения, при этом границы остаются необработанными, либо дополнением данными.
+\newpage
+
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par По выше описанной формуле создается ядро Гаусса указанного размера. Генерируется бинарный вектор с пикселями изображения.\par Для структуризации и упрощения кода была создана отдельная функция parallelSegmentFilter, которая отвечает за формирование результата фильтрации отдельного фрагмента изображения при наложении фильтра.В зависимости от количества процессов формируются блоки данных для каждого процесса. Далкк осуществляется отправление блоков данных процессам. Затем у каждый процесс, используя метод  parallelSegmentFilter обрабатывает свой блок и записывает результат в локальный вектор.Далее формируется глобальный вектор-результат, в который собираются результаты со всех процессов при помощи MPIGatherv. 
+
+\newpage
+
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла linear\_filtration\_block.h и двух файлов исходного кода linear\_filtration\_block.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного алгоритмов
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+int simpleGaussianFilter(const std::vector<int>& img, int height,int width, int radius,
+double sigma, const std::vector<double>& kernel, int row, int cols);
+\end{lstlisting}
+\par Функция для обработки сегмента:
+\begin{lstlisting}
+std::vector<int> parallelSegmentFilter(const std::vector<int>& img, int height,
+int width, int radius,
+double sigma, const std::vector<double>& kernel, int begin, int add);
+\end{lstlisting}
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+dstd::vector<int> parallelGaussianFilter(const std::vector<int>& img, int height,int width, int radius, double sigma,const std::vector<double>& kernel);
+\end{lstlisting}
+\par Функция для создания ядра
+\begin{lstlisting}
+std::vector<double> createGaussianKernel(int size, double sigma);
+\end{lstlisting}
+
+\par Функция для генерации изображения
+\begin{lstlisting}
+std::vector<int> createRandomImg(int width, int height);
+\end{lstlisting}
+
+\par В файле исходного кода multi\_dimension\_monte\_carlo.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+\section*{Корректность алгоритма}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью  Google Tests мной было разработано 6 тестов. В каждом из тестов проводится генерация изображений разных размеров и их фильтрация с помощью последовательного и паралелльного алгоритмов. После результат проверяется на совпадение значений.
+\par Программа была протестирована на 6 размерах изображений и на 5 вариантах колличества процессов. Тесты были пройдены успешно, что подтверждает корректность алгоритмов.
+\par Кроме того на большом колличестве процессов заметна ощутимая разница по времени выполнения, что свидетельствует об эффективности использования параллельного алгоритма.
+\newpage
+
+
+% Выводы из результатов экспериментов
+\section*{Выводы }
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+В результате проведенных тестов можно сделать вывод, что алгоритм параллельной фильтрации работает корректно как на квадратных изображениях, так и на изображениях различных длины и ширины. Параллельный алгоритм работает быстрее, чем последовательный, но является гораздо более сложным по идее и реализации в коде.
+
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы линейной фильтрации изображения с использованием ядра Гаусса 3Х3. Проведенные тесты показали корректность реализованной программы.
+\newpage
+
+
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Бутенко, В. В. Особенности применения фильтров обработки изображений перед поиском объектов на изображениях / В. В. Бутенко. — Текст : непосредственный // Технические науки: теория и практика : материалы III Междунар. науч. конф. (г. Чита, апрель 2016 г.). — Чита : Издательство Молодой ученый, 2016. — С. 1-3. — URL: https://moluch.ru/conf/tech/archive/165/9629/ (дата обращения: 21.12.2021).
+\item https://russianblogs.com/article/4751687725/
+\item http://rsusu1.rnd.runnet.ru/tutor/method/m2/page11.html
+\item https://wiki2.org/ru/%D0%A4%D0%B8%D0%BB%D1%8C%D1%82%D1%80_%D0%93%D0%B0%D1%83%D1%81%D1%81%D0%B0
+\end{enumerate} 
+\newpage
+
+
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+linear\_filtration\_block.h 
+\begin{lstlisting}
+// Copyright 2021 Shurygina A
+
+#ifndef MODULES_TASK_3_SHURYGINA_A_LINEAR_FILTRATION_LINEAR_FILTRATION_BLOCK_H_
+#define MODULES_TASK_3_SHURYGINA_A_LINEAR_FILTRATION_LINEAR_FILTRATION_BLOCK_H_
+
+#include <vector>
+
+std::vector<int> createRandomImg(int width, int height);
+int simpleGaussianFilter(const std::vector<int>& img, int height,
+int width, int radius,
+double sigma, const std::vector<double>& kernel, int row, int cols);
+std::vector<int> parallelSegmentFilter(const std::vector<int>& img, int height,
+int width, int radius,
+double sigma, const std::vector<double>& kernel, int begin, int add);
+std::vector<int> parallelGaussianFilter(const std::vector<int>& img, int height,
+int width, int radius, double sigma,
+const std::vector<double>& kernel);
+std::vector<double> createGaussianKernel(int size, double sigma);
+int findBoundaries(int data, int left, int right);
+void show(const std::vector<int> img, int height, int width);
+
+#endif  // MODULES_TASK_3_SHURYGINA_A_LINEAR_FILTRATION_LINEAR_FILTRATION_BLOCK_H_
+
+\end{lstlisting}
+linear\_filtration\_block.cpp 
+\begin{lstlisting}
+// Copyright 2021 Shurygina A
+#include <mpi.h>
+#include <random>
+#include <algorithm>
+#include <ctime>
+#include <vector>
+#include <iostream>
+#include "../../../modules/task_3/shurygina_a_linear_filtration/linear_filtration_block.h"
+
+std::vector<int> createRandomImg(int width, int height) {
+    std::mt19937 gen;
+    gen.seed(static_cast<unsigned int>(time(0)));
+    int size = height * width;
+    std::vector<int> img(size);
+    for (int i = 0; i < size; i++) {
+        img[i] = gen() % 255;
+    }
+    return img;
+}
+
+int findBoundaries(int input, int left, int right) {
+    if (input < left) {
+        input = left;
+    } else {
+        if (input > right) {
+            input = right;
+        }
+    }
+    return input;
+}
+
+int simpleGaussianFilter(const std::vector<int>& img,
+    int height, int width, int radius,
+    double sigma, const std::vector<double>& kernel,
+    int row, int cols) {
+    int Local = 0;
+    int diam = radius * 2 + 1;
+    double sum = 0;
+    for (int i = -radius; i < radius; i++) {
+        for (int j = -radius; j < radius; j++) {
+            int index = (j + radius) + ((i + radius) * diam);
+            int x = findBoundaries(row + j, 0, height - 1);
+            int y = findBoundaries(cols + i, 0, width - 1);
+            double color = img[x * width + y];
+            sum += color * kernel[index];
+        }
+    }
+    return Local = findBoundaries(sum, 0, 255);
+}
+
+std::vector<double> createGaussianKernel(int size, double sigma) {
+    int kernelSide = size * 2 + 1;
+    double normal = 0;
+    std::vector<double> kernel(kernelSide * kernelSide);
+    for (int i = -size; i <= size; i++) {
+        for (int j = -size; j <= size; j++) {
+            int index = (j + size) + ((i + size) * kernelSide);
+            kernel[index] = exp(-(pow(i, 2) + pow(j, 2)) / (pow(sigma, 2)));
+            normal += kernel[index];
+        }
+    }
+    for (int i = 0; i < pow(kernelSide, 2); i++) {
+        kernel[i] = kernel[i] / normal;
+    }
+    return kernel;
+}
+
+std::vector<int> parallelSegmentFilter(const std::vector<int>& img, int height,
+    int width, int radius, double sigma,
+    const std::vector<double>& kernel, int begin, int add) {
+    std::vector<int> local_result_mas(add * width);
+    for (int i = 0; i < add; i++) {
+        for (int j = 0; j < width; j++) {
+            local_result_mas[i * width + j] =
+                simpleGaussianFilter(img, height, width, radius,
+                    sigma, kernel, i + begin, j);
+        }
+    }
+    return local_result_mas;
+}
+
+std::vector<int> parallelGaussianFilter(const std::vector<int>& img, int height,
+    int width, int radius, double sigma,
+    const std::vector<double>& kernel) {
+    int processNumber, processRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &processNumber);
+    MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+
+    int del = height / processNumber;
+    int remaind = height % processNumber;
+    int pixesNumber = height * width;
+    int* sendbuf = new int[height];
+    int* sendCount = new int[processNumber];
+    int* displs = new int[processNumber];
+
+    for (int i = 0; i < height; i++) {
+        sendbuf[i] = i;
+    }
+    for (int i = 0; i < processNumber; i++) {
+        if (remaind > 0) {
+            sendCount[i] = del + 1;
+            remaind = remaind - 1;
+        } else {
+            sendCount[i] = del;
+        }
+    }
+    int flagSended = 0;
+    for (int i = 0; i < processNumber; i++) {
+        displs[i] = flagSended;
+        flagSended += sendCount[i];
+    }
+    std::vector<int> recvBuf(sendCount[processRank]);
+    // int MPI_Scatter(void* sendbuf, int sendcount, MPI_Datatype sendtype,
+    // void* recvbuf, int recvcount, MPI_Datatype recvtype,
+    // int root, MPI_Comm comm)
+    MPI_Scatterv(&sendbuf[0], sendCount, displs, MPI_INT, &recvBuf[0],
+        sendCount[processRank], MPI_INT, 0, MPI_COMM_WORLD);
+
+    std::vector<int> local_result(recvBuf.size() * width);
+    int sendedData = 0;
+    for (int i = 0; i < processRank; i++) {
+        sendedData += sendCount[i];
+    }
+    local_result = parallelSegmentFilter(img, height, width, radius, sigma,
+        kernel, sendedData, sendCount[processRank]);
+
+    std::vector<int> globalResult(pixesNumber);
+    int* sendCountsGlobal = new int[processNumber];
+    int* displsGlobal = new int[processNumber];
+    for (int i = 0; i < processNumber; i++) {
+        sendCountsGlobal[i] = static_cast<int>(width * recvBuf.size());
+    }
+    int sendedData2 = 0;
+    for (int i = 0; i < processNumber; i++) {
+        displsGlobal[i] = sendedData2 * width;
+        sendedData2 += sendCount[i];
+    }
+    // int MPI_Gather(void* sendbuf, int sendcount, MPI_Datatype sendtype,
+    // void* recvbuf, int recvcount, MPI_Datatype recvtype,
+    // int root, MPI_Comm comm)
+    MPI_Gatherv(&local_result[0], sendCountsGlobal[processRank],
+        MPI_INT, &globalResult[0], sendCountsGlobal, displsGlobal, MPI_INT,
+        0, MPI_COMM_WORLD);
+    return globalResult;
+}
+
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Shurygina A
+#include <mpi.h>
+#include <gtest/gtest.h>
+#include <iostream>
+#include <vector>
+#include <gtest-mpi-listener.hpp>
+#include "./linear_filtration_block.h"
+
+
+TEST(Parallel_Operation_MPI, Test_Image_50x50) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int height = 50;
+    int width = 50;
+    int pixes = height * width;
+    int radius = 1;
+    double sigma = 5.0;
+    std::vector<int> img(pixes);
+    std::vector<int> simpleGauss(pixes);
+    std::vector<int> parallelGauss(pixes);
+    std::vector<double> kernel = createGaussianKernel(radius, sigma);
+    img = createRandomImg(height, width);
+    parallelGauss =
+        parallelGaussianFilter(img, height, width, radius,
+            sigma, kernel);
+    if (rank == 0) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                simpleGauss[i * width + j] =
+                    simpleGaussianFilter(img, height, width, radius,
+                        sigma, kernel, i, j);
+            }
+        }
+        ASSERT_EQ(parallelGauss, simpleGauss);
+    }
+}
+
+TEST(Parallel_Operation_MPI, Test_Image_100x100) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int height = 100;
+    int width = 100;
+    int pixes = height * width;
+    int radius = 1;
+    double sigma = 5.0;
+    std::vector<int> img(pixes);
+    std::vector<int> simpleGauss(pixes);
+    std::vector<int> parallelGauss(pixes);
+    std::vector<double> kernel = createGaussianKernel(radius, sigma);
+    img = createRandomImg(height, width);
+    parallelGauss =
+        parallelGaussianFilter(img, height, width, radius,
+            sigma, kernel);
+    if (rank == 0) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                simpleGauss[i * width + j] =
+                    simpleGaussianFilter(img, height, width, radius,
+                        sigma, kernel, i, j);
+            }
+        }
+        ASSERT_EQ(parallelGauss, simpleGauss);
+    }
+}
+TEST(Parallel_Operation_MPI, Test_Image_500x500) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int height = 500;
+    int width = 500;
+    int pixes = height * width;
+    int radius = 1;
+    double sigma = 5.0;
+    std::vector<int> img(pixes);
+    std::vector<int> simpleGauss(pixes);
+    std::vector<int> parallelGauss(pixes);
+    std::vector<double> kernel =
+        createGaussianKernel(radius, sigma);
+    img = createRandomImg(height, width);
+    parallelGauss =
+        parallelGaussianFilter(img, height, width, radius,
+            sigma, kernel);
+    if (rank == 0) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                simpleGauss[i * width + j] =
+                    simpleGaussianFilter(img, height, width, radius,
+                        sigma, kernel, i, j);
+            }
+        }
+        ASSERT_EQ(parallelGauss, simpleGauss);
+    }
+}
+TEST(Parallel_Operation_MPI, Test_Image_255x255) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int height = 255;
+    int width = 255;
+    int pixes = height * width;
+    int radius = 1;
+    double sigma = 5.0;
+    std::vector<int> img(pixes);
+    std::vector<int> simpleGauss(pixes);
+    std::vector<int> parallelGauss(pixes);
+    std::vector<double> kernel =
+        createGaussianKernel(radius, sigma);
+    img = createRandomImg(height, width);
+    parallelGauss =
+        parallelGaussianFilter(img, height, width, radius, sigma, kernel);
+    if (rank == 0) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                simpleGauss[i * width + j] =
+                    simpleGaussianFilter(img, height, width, radius,
+                        sigma, kernel, i, j);
+            }
+        }
+        ASSERT_EQ(parallelGauss, simpleGauss);
+    }
+}
+TEST(Parallel_Operation_MPI, Test_Image_500x1000) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int height = 50;
+    int width = 1000;
+    int pixes = height * width;
+    int radius = 1;
+    double sigma = 5.0;
+    std::vector<int> img(pixes);
+    std::vector<int> simpleGauss(pixes);
+    std::vector<int> parallelGauss(pixes);
+    std::vector<double> kernel =
+        createGaussianKernel(radius, sigma);
+    img = createRandomImg(height, width);
+    parallelGauss =
+        parallelGaussianFilter(img, height, width, radius,
+            sigma, kernel);
+    if (rank == 0) {
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                simpleGauss[i * width + j] =
+                    simpleGaussianFilter(img, height, width, radius,
+                        sigma, kernel, i, j);
+            }
+        }
+        ASSERT_EQ(parallelGauss, simpleGauss);
+    }
+}
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
