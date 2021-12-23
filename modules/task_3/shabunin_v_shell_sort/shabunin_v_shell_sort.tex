@@ -1,0 +1,674 @@
+\documentclass{report}
+\usepackage[T2A]{fontenc}
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{mathtext}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage[utf8]{luainputenc}
+\usepackage[english,russian]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{alltt}
+\usepackage{relsize}
+\usepackage{color}
+\usepackage{microtype}
+\usepackage{indentfirst}
+\microtypesetup{expansion=false}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+	
+	\begin{titlepage}
+		
+		\begin{center}
+        Министерство науки и высшего образования Российской Федерации
+        \end{center}
+
+        \begin{center}
+        Федеральное государственное автономное образовательное учреждение высшего образования \\
+        Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+        \end{center}
+
+        \begin{center}
+        Институт информационных технологий, математики и механики
+        \end{center}
+		
+		\vspace{4em}
+		
+		\begin{center}
+			\textbf{\LargeОтчет по лабораторной работе} \\
+		\end{center}
+		\begin{center}
+			\textbf{\Large«Сортировка Шелла с простым слиянием»} \\
+		\end{center}
+		
+		\vspace{4em}
+		
+		\newbox{\lbox}
+		\savebox{\lbox}{\hbox{text}}
+		\newlength{\maxl}
+		\setlength{\maxl}{\wd\lbox}
+		\hfill\parbox{5cm}{
+			\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381806-3 \\ Шабунин В. С.\\
+			\\
+			\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\}
+		\vspace{\fill}
+		
+		\begin{center} Нижний Новгород \\ 2021 \end{center}
+		
+	\end{titlepage}
+	
+	\setcounter{page}{2}
+	
+	% Содержание
+	\tableofcontents
+	\newpage
+	
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Сортировка была названа в честь её изобретателя — Дональда Шелла, который опубликовал этот алгоритм в 1959 году. Сортировка Шелла — алгоритм сортировки, являющийся усовершенствованным вариантом сортировки вставками. Идея метода Шелла состоит в сравнении элементов, стоящих не только рядом, но и на определённом расстоянии друг от друга. Иными словами — это сортировка вставками с предварительными «грубыми» проходами.
+\par Сортировки, имеющие сложность \(N^2\) хорошо справляются с небольшими наборами данных (и, к тому же, обычно не требуют использования дополнительной памяти), а сортировки со сложностью исполнения \(N(\log N)\) подойдут для больших объемов.
+
+\par Сортировка Шелла - одна из самых простых в понимании и реализации среди быстрых
+сортировок. Эта сортировка используется в ядре Linux, и в, как минимум, в одной библиотеке
+С++ её код используется для стандартной функции qsort().
+
+\par Обычно сортировка Шелла часто даже быстрее теоретически более быстрых по порядку методов и начинает чуть уступать им лишь, при обработке довольно больших массивов (порядка 10-в миллионов элементов). Этой сортировке совершенно не нужна дополнительная память и она стабильно ведёт себя для самых разных вариантов заполнения данных, выгодно отличаясь этим от быстрых сортировок.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В данной лабораторной работе требуется
+\begin{itemize}
+\item реализовать последовательный и параллельный метод сортировки Шелла на С++ с использованием библиотеки MPI.
+\item составить тесы и сравнить эффективность алгоритмов
+\end{itemize}
+\newpage
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par При сортировке Шелла сначала сравниваются и сортируются между собой значения, стоящие один от другого на некотором расстоянии d. После этого процедура повторяется для некоторых меньших значений d, а завершается сортировка Шелла упорядочиванием элементов при d=1 (то есть обычной cортировкой вставками). Эффективность сортировки Шелла в определённых случаях обеспечивается тем, что элементы «быстрее» встают на свои места (в простых методах сортировки, например, пузырьковой, каждая перестановка двух элементов уменьшает количество инверсий в списке максимум на 1, а при сортировке Шелла это число может быть больше). 
+\par В моей реализации 1 значение d равно половине длинны массива. Каждый следующий шаг уменьшает это значение на 1
+\newpage
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+На начальном этапе имеем сгенерированный некоторый массив, который хранится в 0 процессе.
+
+Если общее количество процессов больше 1 и размер исходного массива больше 1, начинаем процесс параллельной сортировки Шелла, а именно:
+\begin{enumerate} 
+\item Выбираем начальный шаг (в каждом случае он кратен 2ум)
+\item Заводим внешний цикл while, который будет работать до тех пор, пока шаг нашей сортировки не станет = 0.
+\item Внутри цикла while заведём цикл do{}while для корректного разбиения проходов по процессам.
+\item Теперь с текущим шагом проходим по массиву несколько раз и каждый из наборов отправляем в отдельный процесс
+\item В каждом из процессов сортируем данные и отправляем их обратно в 0 процесс для сортировки слиянием.
+
+\end{enumerate}
+\newpage
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла shell\_sort.h и двух файлов исходного кода shell\_sort.cpp и main.cpp.
+
+\par Функция для генирации вектора:
+\begin{lstlisting}
+std::vector<int> getRandomVector(int sz)
+\end{lstlisting}
+ Генерирует вектор заданной длинны со случайными данными типа int
+ 
+ \par Функция для сортировки слиянием:
+\begin{lstlisting}
+std::vector<int> merge(std::vector<int>* v1, std::vector<int>* v2)
+\end{lstlisting}
+ Принимает в себя отсортированные вектора(сортировкой Шелла) и производит сортировку слиянием
+
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+void getSequentialShellSort(std::vector<int>* vec)
+\end{lstlisting}
+ Принимает в себя вектор и производит сортировку
+
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+void getParallelShellSort(std::vector<int>* vec)
+\end{lstlisting}
+Принимает в себя вектор и делит его.
+\par В файле исходного кода shell\_sort.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы были созданы 5 Google test
+\begin{alltt}
+TEST(SHELL_SORT, TEST_SIZE_128) {}
+TEST(SHELL_SORT, TEST_SIZE_123) {}
+TEST(SHELL_SORT, TEST_SIZE_1024) {}
+TEST(SHELL_SORT, TEST_SIZE_1569) {}
+TEST(SHELL_SORT, TEST_SIZE_2048) {}
+\end{alltt}
+В каждом тесте меняется длинна генерируемого вектора.
+\newpage
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты проводились на ПК со следующей конфигурацией:
+\begin{itemize}
+\item Операционная система: Windows 10 Pro версия 20H2
+\item Процессор: AMD Ryzen 9 5900X  3.70 GHz
+\item ОЗУ 32 гб
+\item Версия Visual Studio: 2022
+\end{itemize}
+\begin{table}[h]
+  \caption{Количество процессов: 2}
+  \centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество элементов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Во сколько раз эффективнее  \\[5pt]
+\hline
+2048        & 0.00018        & 0.0002644     & 0.6807      \\
+2345        & 0.0002356       & 0.0001067     & 2.208       \\
+4096        & 0.0002187       & 0.0006766      & 3.093       \\
+4567        & 0.0008421        & 0.0002784     & 3.021      \\
+8192        & 0.0002606        & 0.0007016    & 3.714       \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+  \caption{Количество процессов: 4}
+  \centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество элементов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Во сколько раз эффективнее  \\[5pt]
+\hline
+2048        & 0.0001771      & 0.0004474     & 0.39      \\
+2345      & 0.0002285       & 0.0000703     & 3.25       \\
+4096        & 0.0007092        & 0.0001328      & 5.34       \\
+4567        & 0.0009182        & 0.0001432     & 6.41      \\
+8192        & 0.0026171        & 0.0003128     & 8.36       \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+  \caption{Количество процессов: 8}
+  \centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество элементов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Во сколько раз эффективнее  \\[5pt]
+\hline
+2048        & 0.0001771      & 0.0007569     & 0.23      \\
+2345      & 0.000225       & 0.0000724     & 3.1       \\
+4096        & 0.0007111        & 0.0000981      & 7.24       \\
+4567        & 0.0008518        & 0.0000865     & 9.84      \\
+8192        & 0.0001822        & 0.0001822     & 13.83       \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+  \caption{Количество процессов: 16}
+  \centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество элементов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Во сколько раз эффективнее  \\[5pt]
+\hline
+2048        & 0.0001848      & 0.0011575     & 0.15      \\
+2345      & 0.000226       & 0.0000802     & 2.82       \\
+4096        & 0.000101        & 0.000101      & 15.38       \\
+4567        & 0.000966        & 0.000126     & 7.61      \\
+8192        & 0.0002629        & 0.000204     & 12.84       \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+  \caption{Количество процессов: 24}
+  \centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество элементов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Во сколько раз эффективнее  \\[5pt]
+\hline
+2048        & 0.0001794      & 0.001584     & 0.11      \\
+2345      & 0.0002333       & 0.0000747     & 3.12       \\
+4096        & 0.00066        & 0.0000969      & 6.81       \\
+4567        & 0.0008113        & 0.0001305     & 6.21      \\
+8192        & 0.000208        & 0.0002083     & 14.18       \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+По данным экспериментам можно понять что алгоритм становится более эффективным при большом колличестве элементов. Это связанно с его стабильностью при увеличении элементов.
+
+\newpage
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Реализованные алгоритмы Шелла позволяют оценить разность в производительности последовательного и параллельного подхода, а также изучить конкретные примеры их реализаций.
+\newpage
+
+% Список литературы
+
+\addcontentsline{toc}{section}{Список литературы}
+\begin{enumerate}
+\item https://habr.com/ru/post/467473/
+\item https://ru.wikipedia.org/wiki/%D0%A1%D0%BE%D1%80%D1%82%D0%B8%D1%80%D0%BE%D0%B2%D0%BA%D0%B0_%D0%A8%D0%B5%D0%BB%D0%BB%D0%B0
+
+
+\item С. В. Скворцов, Т. А. Пюрова. ПАРАЛЛЕЛЬНЫЕ АЛГОРИТМЫ СОРТИРОВКИ ДАННЫХ
+И ИХ РЕАЛИЗАЦИЯ НА ПЛАТФОРМЕ CUDA.
+
+\item MPI documentation, https://www.mpich.org/static/docs/v3.2/www3/
+\end{enumerate}
+\newpage
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+ 	\subsection*{shell\_sort.h}
+ 	\begin{lstlisting}
+// Copyright 2021 Shabunin Vladislav
+#ifndef MODULES_TASK_3_SHABUNIN_V_SHELL_SORT_SHELL_SORT_H_
+#define MODULES_TASK_3_SHABUNIN_V_SHELL_SORT_SHELL_SORT_H_
+
+#include <vector>
+
+std::vector<int> getRandomVector(int sz);
+void getSequentialShellSort(std::vector<int>* vec);
+void getParallelShellSort(std::vector<int>* arr);
+
+#endif  // MODULES_TASK_3_SHABUNIN_V_SHELL_SORT_SHELL_SORT_H_
+
+
+\end{lstlisting}
+shell\_sort.cpp
+\begin{lstlisting}
+// Copyright 2021 Shabunin Vladislav
+#include "../../../modules/task_3/shabunin_v_shell_sort/shell_sort.h"
+
+#include <mpi.h>
+
+#include <algorithm>
+#include <random>
+#include <string>
+#include <vector>
+
+std::vector<int> getRandomVector(int sz) {
+  std::random_device dev;
+  std::mt19937 gen(dev());
+  std::vector<int> vec(sz);
+  for (int i = 0; i < sz; i++) {
+    vec[i] = gen() % 100;
+  }
+  return vec;
+}
+
+std::vector<int> merge(std::vector<int>* v1, std::vector<int>* v2) {
+  int i = 0, j = 0, k = 0;
+  int n1 = (*v1).size(), n2 = (*v2).size();
+  std::vector<int> result(n1 + n2);
+
+  while (i < n1 && j < n2)
+    if ((*v1)[i] < (*v2)[j]) {
+      result[k] = (*v1)[i];
+      i++;
+      k++;
+    } else {
+      result[k] = (*v2)[j];
+      j++;
+      k++;
+    }
+  if (i == n1) {
+    while (j < n2) {
+      result[k] = (*v2)[j];
+      j++;
+      k++;
+    }
+  } else {
+    while (i < n1) {
+      result[k] = (*v1)[i];
+      i++;
+      k++;
+    }
+  }
+  return result;
+}
+
+
+void getSequentialShellSort(std::vector<int>* vec) {
+  int i, j, increment, temp, size = (*vec).size();
+  increment = 3;
+  while (increment > 0) {
+    for (i = 0; i < size; i++) {
+      j = i;
+      temp = (*vec)[i];
+      while ((j >= increment) && ((*vec)[j - increment] > temp)) {
+        (*vec)[j] = (*vec)[j - increment];
+        j = j - increment;
+      }
+      (*vec)[j] = temp;
+    }
+    if (increment / 2 != 0)
+      increment = increment / 2;
+    else if (increment == 1)
+      increment = 0;
+    else
+      increment = 1;
+  }
+}
+
+void getParallelShellSort(std::vector<int>* vec) {
+  std::vector<int> chunk;
+  std::vector<int> other;
+  int m = (*vec).size(), n = (*vec).size();
+  int rank, size;
+  int delta;
+  int i;
+  int step;
+  MPI_Status status;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (rank == 0) {
+    int r;
+    delta = n / size;
+    r = n % size;
+
+    if (r != 0) {
+      (*vec).resize(n + size - r);
+      for (i = n; i < n + size - r; i++) (*vec)[i] = 0;
+      delta = delta + 1;
+    }
+
+    MPI_Bcast(&delta, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    chunk.resize(delta);
+    MPI_Scatter((*vec).data(), delta, MPI_INT, chunk.data(), delta, MPI_INT, 0,
+                MPI_COMM_WORLD);
+    getSequentialShellSort(&chunk);
+  } else {
+    MPI_Bcast(&delta, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    chunk.resize(delta);
+    MPI_Scatter((*vec).data(), delta, MPI_INT, chunk.data(), delta, MPI_INT, 0,
+                MPI_COMM_WORLD);
+    getSequentialShellSort(&chunk);
+  }
+
+  step = 1;
+
+  while (step < size) {
+    if (rank % (2 * step) == 0) {
+      if (rank + step < size) {
+        MPI_Recv(&m, 1, MPI_INT, rank + step, 0, MPI_COMM_WORLD, &status);
+        other.resize(m);
+        MPI_Recv(other.data(), m, MPI_INT, rank + step, 0, MPI_COMM_WORLD,
+                 &status);
+        chunk = merge(&chunk, &other);
+        delta = delta + m;
+        fflush(stdout);
+      }
+    } else {
+      int near = rank - step;
+      MPI_Send(&delta, 1, MPI_INT, near, 0, MPI_COMM_WORLD);
+      MPI_Send(chunk.data(), delta, MPI_INT, near, 0, MPI_COMM_WORLD);
+      break;
+    }
+    step = step * 2;
+  }
+  if (rank == 0) {
+    (*vec) = chunk;
+    if (n % size) {
+      for (i = n; i < n + size - n % size; i++) (*vec).erase((*vec).begin());
+    }
+  }
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Shabunin Vladislav
+#include <gtest/gtest.h>
+
+#include <vector>
+#include <gtest-mpi-listener.hpp>
+
+#include "./shell_sort.h"
+
+TEST(SHELL_SORT, TEST_SIZE_128) {
+  int rank, num;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num);
+
+  std::vector<int> vec, vec1, vec2;
+  int vec_size = 128;
+  double start, end;
+
+  if (rank == 0) {
+    vec = getRandomVector(vec_size);
+    vec1 = vec;
+    // for (int elem : vec) {
+    //  std::cout << elem << " ";
+    //}
+    // std::cout << std::endl;
+    start = MPI_Wtime();
+  }
+  getParallelShellSort(&vec1);
+  if (rank == 0) {
+    end = MPI_Wtime();
+    double ptime = end - start;
+    std::cout << "P time " << ptime << std::endl;
+    vec2 = vec;
+    start = MPI_Wtime();
+    getSequentialShellSort(&vec2);
+    end = MPI_Wtime();
+    double stime = end - start;
+    std::cout << "S time " << stime << std::endl;
+    std::cout << "Speedup " << stime / ptime << std::endl;
+
+    std::cout << vec1.size() << " " << vec2.size() << std::endl;
+    for (int i = 0; i < vec_size; i++) {
+      ASSERT_EQ(vec1[i], vec2[i]);
+    }
+  }
+}
+
+TEST(SHELL_SORT, TEST_SIZE_123) {
+  int rank, num;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num);
+
+  std::vector<int> vec, vec1, vec2;
+  int vec_size = 123;
+  double start, end;
+
+  if (rank == 0) {
+    vec = getRandomVector(vec_size);
+    vec1 = vec;
+    // for (int elem : vec) {
+    //  std::cout << elem << " ";
+    //}
+    // std::cout << std::endl;
+    start = MPI_Wtime();
+  }
+  getParallelShellSort(&vec1);
+  if (rank == 0) {
+    end = MPI_Wtime();
+    double ptime = end - start;
+    std::cout << "P time " << ptime << std::endl;
+    vec2 = vec;
+    start = MPI_Wtime();
+    getSequentialShellSort(&vec2);
+    end = MPI_Wtime();
+    double stime = end - start;
+    std::cout << "S time " << stime << std::endl;
+    std::cout << "Speedup " << stime / ptime << std::endl;
+
+    std::cout << vec1.size() << " " << vec2.size() << std::endl;
+    for (int i = 0; i < vec_size; i++) {
+      ASSERT_EQ(vec1[i], vec2[i]);
+    }
+  }
+}
+
+TEST(SHELL_SORT, TEST_SIZE_1024) {
+  int rank, num;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num);
+
+  std::vector<int> vec, vec1, vec2;
+  int vec_size = 1024;
+  double start, end;
+
+  if (rank == 0) {
+    vec = getRandomVector(vec_size);
+    vec1 = vec;
+    // for (int elem : vec) {
+    //  std::cout << elem << " ";
+    //}
+    // std::cout << std::endl;
+    start = MPI_Wtime();
+  }
+  getParallelShellSort(&vec1);
+  if (rank == 0) {
+    end = MPI_Wtime();
+    double ptime = end - start;
+    std::cout << "P time " << ptime << std::endl;
+    vec2 = vec;
+    start = MPI_Wtime();
+    getSequentialShellSort(&vec2);
+    end = MPI_Wtime();
+    double stime = end - start;
+    std::cout << "S time " << stime << std::endl;
+    std::cout << "Speedup " << stime / ptime << std::endl;
+
+    std::cout << vec1.size() << " " << vec2.size() << std::endl;
+    for (int i = 0; i < vec_size; i++) {
+      ASSERT_EQ(vec1[i], vec2[i]);
+    }
+  }
+}
+
+TEST(SHELL_SORT, TEST_SIZE_1569) {
+  int rank, num;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num);
+
+  std::vector<int> vec, vec1, vec2;
+  int vec_size = 1569;
+  double start, end;
+
+  if (rank == 0) {
+    vec = getRandomVector(vec_size);
+    vec1 = vec;
+    // for (int elem : vec) {
+    //  std::cout << elem << " ";
+    //}
+    // std::cout << std::endl;
+    start = MPI_Wtime();
+  }
+  getParallelShellSort(&vec1);
+  if (rank == 0) {
+    end = MPI_Wtime();
+    double ptime = end - start;
+    std::cout << "P time " << ptime << std::endl;
+    vec2 = vec;
+    start = MPI_Wtime();
+    getSequentialShellSort(&vec2);
+    end = MPI_Wtime();
+    double stime = end - start;
+    std::cout << "S time " << stime << std::endl;
+    std::cout << "Speedup " << stime / ptime << std::endl;
+
+    std::cout << vec1.size() << " " << vec2.size() << std::endl;
+    for (int i = 0; i < vec_size; i++) {
+      ASSERT_EQ(vec1[i], vec2[i]);
+    }
+  }
+}
+
+TEST(SHELL_SORT, TEST_SIZE_2048) {
+  int rank, num;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &num);
+
+  std::vector<int> vec, vec1, vec2;
+  int vec_size = 2048;
+  double start, end;
+
+  if (rank == 0) {
+    vec = getRandomVector(vec_size);
+    vec1 = vec;
+    // for (int elem : vec) {
+    //  std::cout << elem << " ";
+    //}
+    // std::cout << std::endl;
+    start = MPI_Wtime();
+  }
+  getParallelShellSort(&vec1);
+  if (rank == 0) {
+    end = MPI_Wtime();
+    double ptime = end - start;
+    std::cout << "P time " << ptime << std::endl;
+    vec2 = vec;
+    start = MPI_Wtime();
+    getSequentialShellSort(&vec2);
+    end = MPI_Wtime();
+    double stime = end - start;
+    std::cout << "S time " << stime << std::endl;
+    std::cout << "Speedup " << stime / ptime << std::endl;
+
+    std::cout << vec1.size() << " " << vec2.size() << std::endl;
+    for (int i = 0; i < vec_size; i++) {
+      ASSERT_EQ(vec1[i], vec2[i]);
+    }
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
