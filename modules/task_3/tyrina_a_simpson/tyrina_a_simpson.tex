@@ -1,0 +1,383 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Вычисление многомерных интегралов с использованием многошаговой схемы 
+(метод Симпсона)»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнилa:} \\ студентка группы 381906-1 \\ Тырина А.А. \\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Численное интегрирование — вычисление значения определённого интеграла (как правило, приближённое). Под численным интегрированием понимают набор численных методов для нахождения значения определённого интеграла. Одним из таких методов является метод Симпсона (парабол).
+\par Метод Симпсона заключается в интегрировании интерполяционного многочлена второй степени функции f(x) с узлами интерполяции a, b и m = (a+b)/2 — параболы p(x).Для повышения точности имеет смысл разбить отрезок интегрирования на N равных промежутков(по аналогии с методом трапеций), на каждом из которых применить метод Симпсона. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе требуется реализовать последовательный алгоритм вычисления многомерных интегралов методом Симпсона и параллельный алгоритм с помощью библиотеки MPI.
+\par Для оценки эффективности работы программы нужно произвести серию экспериментов, сравнивающих время выполнения последовательной и параллельной версии алгоритма, сравнить полученные результаты и сделать выводы.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par
+Метод Симпсона заключается в интегрировании интерполяционного многочлена второй степени функции f(x) с узлами интерполяции a, b и m = (a+b)/2 — параболы p(x).Для повышения точности имеет смысл разбить отрезок интегрирования на N равных промежутков(по аналогии с методом трапеций), на каждом из которых применить метод Симпсона.
+Площадь параболы может быть найдена суммированием площадей 6 прямоугольников равной ширины. Высота первого из них должна быть равна f(a), с третьего по пятый — f(m), шестого — f(m). Таким образом, приближение методом Симпсона находим по формуле:
+$\displaystyle {\int_{a}^{b} f(x) \, dx }\approx {\int_{a}^{b} P_{2}(x) \, dx}=\frac  {b-a}{6}{\left(f(a)+4f\left({\frac  {a+b}{2}}\right)+f(b)\right)}$.
+
+\par Для вычисления многомерных интегралов воспользуемся многошаговой схемой.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par 
+Распараллеливание происходит путем параллельного вычисления локальных сумм по формуле Симпсона. Каждый процесс вычисляет значения подынтегральной функции для своего числа отрезков, суммирует эти значения в свою локальную сумму. Затем функцией Reduce все локальные суммы складываются в глобальную в процессе с рангом 0. Останется только умножить результат на высоты оснований каждого интервала.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла simpson.h и двух файлов исходного кода simpson.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного вычисления многомерных интегралов.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+double getSequentialSimpson(function<double(vector<double>)> func,
+                            vector<pair<double, double>> a_b, int n);
+\end{lstlisting}
+Входными параметрами функции является подынтегральная функция, массив пределов интегрирования, количество разбиений
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+double getParallelSimpson(function<double(vector<double>)> f,
+                          vector<pair<double, double>> limits, int n);
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода simpson.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью фрэймфорка Google Test была разработана серия тестов. В каждом из тестов вычисляется значение контрольного  интеграла заданной размерности при помощи последовательного и параллельного алгоритмов, подсчитывается время работы обоих алгоритмов, находится ускорение делением времени работы последовательного алгоритма на время работы параллельного. Результаты вычисления интеграла последовательным и параллельным способом сравниваются между собой в пределах погрешности, после чего можно сделать выводы об эффективнсти программы.
+
+\par Успешное прохождение разработанных мной тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel Core i5-10210U, 3.5 ГГц, количество ядер: 8;
+\item Оперативная память: 8 ГБ (DDR4), 3200  МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте 4}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 1.508        & 1.415     & 1.066       \\
+2        & 1.403        & 0.822     & 1.707       \\
+3        & 1.478        & 0.584     & 2.530       \\
+4        & 1.494        & 0.459     & 3.254       \\
+8        & 1.616        & 0.285     & 5.669	    \\
+16        & 1.599        & 0.353     & 4.524	  \\
+\hline
+\end{tabular}
+\end{table}
+По данным, полученным в результате экспериментов, можно сделать вывод о том,
+что параллельный алгоритм работает до 5 раз быстрее, чем последовательный.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения данной лабораторной работы были разработаны последовательный и параллельный алгоритмы вычисления многомерных интегралов методом Симпсона. После выполенения серии экспериментов можно сделать вывод о том, что параллельный алгоритм работает быстрее последовательного, что доказывает эффективность параллельного алгоритма по сравнению с последовательным.
+\par Были разработаны и доведены до успешного выполнения тесты,  с использованием GoogleC++ Testing Framework, которые  подтвердиди корректность выполнения  программы.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Гергель В. П. Теория и практика параллельных вычислений. – 2007.
+\itemГергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+simpson.cpp
+\begin{lstlisting}
+// Copyright 2021 Tyrina Anastasia
+#include "../../../modules/task_3/tyrina_a_simpson/simpson.h"
+
+#include <mpi.h>
+
+#include <cmath>
+
+double getSequentialSimpson(function<double(vector<double>)> func,
+                            vector<pair<double, double>> a_b, int n) {
+  int integral_size = a_b.size();
+  vector<double> h(integral_size);
+  int num = 1;
+
+  for (int i = 0; i < integral_size; ++i) {
+    h[i] = (a_b[i].second - a_b[i].first) / n;
+    num *= n;
+  }
+
+  double sum = 0.0;
+  for (int i = 0; i < num; ++i) {
+    vector<vector<double>> x(integral_size);
+    int tmp = i;
+    for (int j = 0; j < integral_size; ++j) {
+      x[j].push_back(a_b[j].first + tmp % n * h[j]);
+      for (int k = 0; k < 4; k++) {
+        x[j].push_back(a_b[j].first + tmp % n * h[j] + h[j] / 2);
+      }
+      x[j].push_back(a_b[j].first + tmp % n * h[j] + h[j]);
+      tmp /= n;
+    }
+    vector<double> comb;
+    for (int i = 0; i < pow(6, integral_size); ++i) {
+      int tmp = i;
+      for (int j = 0; j < integral_size; ++j) {
+        comb.push_back(x[j][tmp % 6]);
+        tmp /= 6;
+      }
+      sum += func(comb);
+      comb.clear();
+    }
+    x.clear();
+  }
+  for (int i = 0; i < integral_size; ++i) {
+    sum *= h[i] / 6.0;
+  }
+  return sum;
+}
+
+double getParallelSimpson(function<double(vector<double>)> func,
+                          vector<pair<double, double>> a_b, int n) {
+  int size, rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int integral_size = a_b.size();
+  std::vector<double> h(integral_size);
+
+  int global_num;
+  if (rank == 0) {
+    global_num = 1;
+    for (int i = 0; i < integral_size; ++i) {
+      h[i] = (a_b[i].second - a_b[i].first) / n;
+      global_num *= n;
+    }
+  }
+  MPI_Bcast(&global_num, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(h.data(), integral_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  int rem = global_num % size;
+  int delta, start;
+  if (rank == 0) {
+    delta = global_num / size + rem;
+    start = 0;
+  } else {
+    delta = global_num / size;
+    start = rem + delta * rank;
+  }
+
+  double local_sum = 0.0;
+  for (int i = start; i < delta + start; ++i) {
+    vector<vector<double>> x(integral_size);
+    int tmp = i;
+    for (int j = 0; j < integral_size; ++j) {
+      x[j].push_back(a_b[j].first + tmp % n * h[j]);
+      for (int k = 0; k < 4; k++) {
+        x[j].push_back(a_b[j].first + tmp % n * h[j] + h[j] / 2);
+      }
+      x[j].push_back(a_b[j].first + tmp % n * h[j] + h[j]);
+      tmp /= n;
+    }
+
+    vector<double> comb;
+    for (int i = 0; i < pow(6, integral_size); ++i) {
+      int temp = i;
+      for (int j = 0; j < integral_size; ++j) {
+        comb.push_back(x[j][temp % 6]);
+        temp /= 6;
+      }
+      local_sum += func(comb);
+      comb.clear();
+    }
+    x.clear();
+  }
+
+  double global_sum = 0.0;
+  MPI_Reduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+             MPI_COMM_WORLD);
+
+  if (rank == 0) {
+    for (int i = 0; i < integral_size; ++i) {
+      global_sum *= h[i] / 6.0;
+    }
+  }
+  return global_sum;
+}
+
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Tyrina Anastasia
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <gtest-mpi-listener.hpp>
+
+#include "./simpson.h"
+
+const function<double(vector<double>)> func1 = [](vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  return x * x - 2 * y;
+};
+
+const double eps = 0.0001;
+
+TEST(SIMPSON_METHOD_MPI, TEST_1) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  std::vector<std::pair<double, double>> limits({{4, 10}, {1, 2}});
+  int n = 100;
+
+  double start = MPI_Wtime();
+  double result = getParallelSimpson(func1, limits, n);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    start = MPI_Wtime();
+    double reference_result = getSequentialSimpson(func1, limits, n);
+    end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "Sequential: " << stime << std::endl;
+    std::cout << "Parallel: " << ptime << std::endl;
+    std::cout << "Speedup: " << stime / ptime << std::endl;
+    ASSERT_NEAR(result, reference_result, eps);
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
