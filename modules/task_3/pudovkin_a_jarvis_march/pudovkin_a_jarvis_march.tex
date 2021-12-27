@@ -1,0 +1,487 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+% Титульный лист %
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+\textbf{Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского}
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\begin{center}
+Направление подготовки: «Фундаментальная информатика и информационные технологии»
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Построение выпуклой оболочки – проход Джарвиса.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-1 \\ Пудовкин А. В.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Руководитель:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Задача построения выпуклой оболочки имеет давнюю историю. Она является одной из первых задач вычислительной геометрии, с которой начала зарождаться эта наука.  Задача имеет очень огромное количество приложений и широко используется для решения других задач вычислительной геометрии. В настоящее время известно достаточно большое число алгоритмов построения выпуклой оболочки. Выпуклую оболочку объекта можно строить различными аналитическими способами, которые в основном являются сложными. Ниже предлагается один из способов построения выпуклой оболочки на языке C++ с использованием технологий MPI.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Разработать параллельное приложение, используя MPI, для нахождения минимальной выпуклой оболочки алгоритмом Джарвиса.
+Провести тестирование работоспособности приложения.
+\newpage
+
+% Метод решения
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Пусть дано множество точек $P=\{\,p_1, p_2, ..., p_n\}$. В качестве начальной берётся самая левая нижняя точка $p_1$ (её можно найти за $O(n)$ обычным проходом по всем точкам), она точно является вершиной выпуклой оболочки. Следующей точкой  $p_2$ берём такую точку, которая имеет наименьший положительный полярный угол относительно точки $p_1$, как начала координат. После этого для каждой точки $p_i$, где $(2<i<=|P|)$, против часовой стрелки ищется такая точка $p_{i+1}$, путём нахождения за $O(n)$ среди оставшихся точек (+ самая левая нижняя), в которой будет образовываться наибольший угол между прямыми $p_{i-1} p_i$ и $p_{i}p_{i+1}$. Она и будет следующей вершиной выпуклой оболочки. Сам угол при этом не ищется, а ищется только его косинус через скалярное произведение между лучами  $p_{i-1}p_{i}$ и $p_{i}p'_{i+1}$, где  $p_{i}$ — последний найденный минимум,  $p_{i-1}$ — предыдущий минимум(претедент), а $p'_{i+1}$ — претендент на следующий минимум. Новым минимумом будет та точка, в которой косинус будет принимать наименьшее значение (чем меньше косинус, тем больше его угол). Нахождение вершин выпуклой оболочки продолжается до тех пор, пока $p_{i+1}\neq p_{1}$. В тот момент, когда следующая точка в выпуклой оболочке совпала с первой, алгоритм останавливается — выпуклая оболочка построена.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Для распараллеливания алгоритма построения выпуклой оболочки необходимо разделить изначальный массив точек на блоки. Количество блоков равно числу процессов. Если размер изначального массива не делится нацело на число процессов, то останутся точки которые не войдут в блок, их количество равно остатку от деления. Для решения этой проблемы учитываем эти точки в блоке корневого процесса.
+\par
+Далее корневой процесс раздает блоки с точками каждому процессу и каждый процесс локально ищет самую крайнюю левую точку в своем блоке, передавая ее в корневой процесс для обработки.
+\par
+После нахождения самой левой точки, в каждом процессе выполняется проход Джарвиса. Завершив проход, процессы отправляют найденную точку на корневой процесс, и в корневом еще раз запускается проход Джарвиса. Таким образом, получаем точку, которая принадлежит выпуклой оболочке.  
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Алгоритм последовательного построения минимальной выпуклой оболочки вызывается при помощи функции:
+\begin{lstlisting}
+vector<Point2d> sequentialJarvisMarch(const vector<Point2d>& vectorOfVertex);
+\end{lstlisting}
+\par Входным параметром функции является вектор точек, по которым нужно построить минимальную выпуклую оболочку. Выходными данными является вектор точек, составляющих выпуклую оболочку.
+\par Алгоритм параллельного построения выпуклой оболочки вызывается при помощи функции:
+\begin{lstlisting}
+vector<Point2d> parallelJarvisMarch(const vector<Point2d>& vectorOfVertex, vector<int>::size_type vectorSize);
+\end{lstlisting}
+\par Входные и выходные данные аналогичны предыдущим.
+\par Функция генерирующая рандомный вектор точек:
+\begin{lstlisting}
+vector<Point2d> getRandomVector(const vector<int>::size_type vectorSize);
+\end{lstlisting}
+\par Входным параметром является размер вектора. Функция возвращает сгенерированный вектор точек.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы программы был реализован набор тестов, разработанных на основе Google C++ Testing Framework.
+\par Набор представляет из себя тесты, проверяющие корректность вычислений (проверка на совпадение результатов работы параллельной программы и последовательной), а также эффективность (вычисление времени работы последовательной и параллельной функций).
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Были проведены тесты для оценки алгоритма построения выпуклой оболочки проходом Джарвиса, тестирование проводилось на стационарном компьютере с характеристиками:
+
+\begin{itemize}
+\item Процессор: Intel(R) Pentium(R) CPU G4600 @ 3.60 GHz, ядер: 2;
+\item Оперативная память: 8194 MB, 2133.0 MHz;
+\item ОС: Windows 10 Home, 64bit.
+\end{itemize}
+
+\par Для тестов была построена выпуклая оболочка для вектора из \verb|1 000 000| точек. 
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{llllll}
+Количество процессов & Параллельная & Последовательная & Ускорение  \\
+1        & 61.3179        & 60.2388      & 0.98                     \\
+2        & 21.9682        & 63.3544      & 2.88                     \\
+3        & 10.6473        & 61.7812      & 5.80                     \\
+4        & 9.32277        & 60.1249      & 6.44                     \\
+5        & 4.53295        & 60.8641      & 13.4                     \\
+6        & 3.37009        & 58.0711      & 17.2                     \\
+7        & 3.65367        & 53.5541      & 14.6                     \\
+8        & 4.07899        & 53.9739      & 13.2      
+\end{tabular}
+\end{table}
+
+\par Результаты полученные в ходе вычислительных экспериментов действительно подтверждают эффективность параллельной реализации в сравнении с последовательной.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения лабораторной работы были реализованы последовательная и параллельная реализации алгоритма построения выпуклой оболочки с помощью прохода Джарвиса.
+\newpage
+
+% Список литературы
+\addcontentsline{toc}{section}{Список литературы}
+\begin{enumerate}
+\item Документация по MPI. URL: \url{https://www.opennet.ru/docs/RUS/MPI_intro/}
+\item Документация по С++, URL: \url{https://prog-cpp.ru/cpp/}
+\item Теоретические и практические статьи по С++, URL:\url{ https://habr.com/}
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// Copyright 2021 Pudovkin Artem
+#include <gtest/gtest.h>
+#include <vector>
+#include "./jarvis_march.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Parallel_Jarvis_March, Vertex_Equal_100) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    vector<Point2d> global_vector;
+    const vector<int>::size_type size = 100;
+
+    if (rank == 0) {
+        global_vector = getRandomVector(size);
+    }
+
+    vector<Point2d> global_curve = parallelJarvisMarch(global_vector, size);
+
+    if (rank == 0) {
+        vector<Point2d> reference_curve = sequentialJarvisMarch(global_vector);
+
+        ASSERT_EQ(global_curve.size(), reference_curve.size());
+        for (vector<int>::size_type i = 0; i < global_curve.size(); ++i) {
+            ASSERT_EQ(global_curve[i].x, reference_curve[i].x);
+            ASSERT_EQ(global_curve[i].y, reference_curve[i].y);
+        }
+    }
+}
+
+TEST(Parallel_Jarvis_March, Vertex_Equal_150) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    vector<Point2d> global_vector;
+    const vector<int>::size_type size = 150;
+
+    if (rank == 0) {
+        global_vector = getRandomVector(size);
+    }
+
+    vector<Point2d> global_curve = parallelJarvisMarch(global_vector, size);
+
+    if (rank == 0) {
+        vector<Point2d> reference_curve = sequentialJarvisMarch(global_vector);
+
+        ASSERT_EQ(global_curve.size(), reference_curve.size());
+        for (vector<int>::size_type i = 0; i < global_curve.size(); ++i) {
+            ASSERT_EQ(global_curve[i].x, reference_curve[i].x);
+            ASSERT_EQ(global_curve[i].y, reference_curve[i].y);
+        }
+    }
+}
+
+TEST(Parallel_Jarvis_March, Vertex_Equal_200) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    vector<Point2d> global_vector;
+    const vector<int>::size_type size = 200;
+
+    if (rank == 0) {
+        global_vector = getRandomVector(size);
+    }
+
+    vector<Point2d> global_curve = parallelJarvisMarch(global_vector, size);
+
+    if (rank == 0) {
+        vector<Point2d> reference_curve = sequentialJarvisMarch(global_vector);
+
+        ASSERT_EQ(global_curve.size(), reference_curve.size());
+        for (vector<int>::size_type i = 0; i < global_curve.size(); ++i) {
+            ASSERT_EQ(global_curve[i].x, reference_curve[i].x);
+            ASSERT_EQ(global_curve[i].y, reference_curve[i].y);
+        }
+    }
+}
+
+TEST(Parallel_Jarvis_March, Vertex_Equal_250) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    vector<Point2d> global_vector;
+    const vector<int>::size_type size = 250;
+
+    if (rank == 0) {
+        global_vector = getRandomVector(size);
+    }
+
+    vector<Point2d> global_curve = parallelJarvisMarch(global_vector, size);
+
+    if (rank == 0) {
+        vector<Point2d> reference_curve = sequentialJarvisMarch(global_vector);
+
+        ASSERT_EQ(global_curve.size(), reference_curve.size());
+        for (vector<int>::size_type i = 0; i < global_curve.size(); ++i) {
+            ASSERT_EQ(global_curve[i].x, reference_curve[i].x);
+            ASSERT_EQ(global_curve[i].y, reference_curve[i].y);
+        }
+    }
+}
+
+TEST(Parallel_Jarvis_March, Vertex_Equal_300) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    vector<Point2d> global_vector;
+    const vector<int>::size_type size = 300;
+
+    if (rank == 0) {
+        global_vector = getRandomVector(size);
+    }
+
+    vector<Point2d> global_curve = parallelJarvisMarch(global_vector, size);
+
+    if (rank == 0) {
+        vector<Point2d> reference_curve = sequentialJarvisMarch(global_vector);
+
+        ASSERT_EQ(global_curve.size(), reference_curve.size());
+        for (vector<int>::size_type i = 0; i < global_curve.size(); ++i) {
+            ASSERT_EQ(global_curve[i].x, reference_curve[i].x);
+            ASSERT_EQ(global_curve[i].y, reference_curve[i].y);
+        }
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+\begin{lstlisting}
+// Copyright 2021 Pudovkin Artem
+#ifndef MODULES_TASK_3_PUDOVKIN_A_JARVIS_MARCH_JARVIS_MARCH_H_
+#define MODULES_TASK_3_PUDOVKIN_A_JARVIS_MARCH_JARVIS_MARCH_H_
+
+#include <mpi.h>
+#include <vector>
+
+using std::vector;
+
+struct Point2d {
+    int x;
+    int y;
+
+    Point2d() : x(0), y(0) {}
+    Point2d(const int _x, const int _y) : x(_x), y(_y) {}
+};
+
+vector<Point2d> getRandomVector(const vector<int>::size_type vectorSize);
+
+vector<Point2d> sequentialJarvisMarch(const vector<Point2d>& vectorOfVertex);
+vector<Point2d> parallelJarvisMarch(const vector<Point2d>& vectorOfVertex, vector<int>::size_type vectorSize);
+
+#endif  // MODULES_TASK_3_PUDOVKIN_A_JARVIS_MARCH_JARVIS_MARCH_H_
+
+\end{lstlisting}
+\begin{lstlisting}
+// Copyright 2021 Pudovkin Artem
+#include <mpi.h>
+#include <stddef.h>
+#include <random>
+#include <algorithm>
+#include <numeric>
+#include "../../../modules/task_3/pudovkin_a_jarvis_march/jarvis_march.h"
+
+int findRotate(const Point2d& firstVertex, const Point2d& secondVertex, const Point2d& thirdVertex) {
+    return (secondVertex.x - firstVertex.x) * (thirdVertex.y - secondVertex.y)
+        - (secondVertex.y - firstVertex.y) * (thirdVertex.x - secondVertex.x);
+}
+void initializeStructPoint2d(MPI_Datatype* structPoint2d) {
+    int count = 2;
+    int array_of_blocklengths[] = { 1, 1 };
+    MPI_Aint array_of_displacements[] = { offsetof(Point2d, x), offsetof(Point2d, y) };
+    MPI_Datatype array_of_types[] = { MPI_INT, MPI_INT };
+    MPI_Datatype tmp_type;
+    MPI_Aint lb, extent;
+
+    MPI_Type_create_struct(count, array_of_blocklengths, array_of_displacements, array_of_types, &tmp_type);
+    MPI_Type_get_extent(tmp_type, &lb, &extent);
+    MPI_Type_create_resized(tmp_type, lb, extent, structPoint2d);
+    MPI_Type_commit(structPoint2d);
+}
+
+vector<Point2d> getRandomVector(const vector<int>::size_type vectorSize) {
+    std::mt19937 gen(100);
+
+    vector<Point2d> vectorOfVertex(vectorSize);
+    for (vector<int>::size_type i = 0; i < vectorSize; i++) {
+        vectorOfVertex[i] = Point2d(gen() % 10000, gen() % 10000);
+    }
+
+    return vectorOfVertex;
+}
+
+vector<Point2d> sequentialJarvisMarch(const vector<Point2d>& vectorOfVertex) {
+    vector<int> vectorOfIndex(vectorOfVertex.size());
+    std::iota(vectorOfIndex.begin(), vectorOfIndex.end(), 0);
+
+    for (vector<int>::size_type i = 1; i < vectorOfVertex.size(); ++i) {
+        if (vectorOfVertex[vectorOfIndex[i]].x < vectorOfVertex[vectorOfIndex[0]].x) {
+            std::swap(vectorOfIndex[i], vectorOfIndex[0]);
+        }
+    }
+
+    vector<int> curveH = { vectorOfIndex[0] };
+    vectorOfIndex.erase(vectorOfIndex.begin());
+    vectorOfIndex.push_back(curveH[0]);
+
+    while (true) {
+        int right = 0;
+        for (vector<int>::size_type i = 1; i < vectorOfIndex.size(); i++) {
+            if (findRotate(vectorOfVertex[curveH[curveH.size() - 1]],
+                vectorOfVertex[vectorOfIndex[right]],
+                vectorOfVertex[vectorOfIndex[i]]) < 0) {
+                right = i;
+            }
+        }
+        if (vectorOfIndex[right] == curveH[0]) {
+            break;
+        } else {
+            curveH.push_back(vectorOfIndex[right]);
+            vectorOfIndex.erase(vectorOfIndex.begin() + right);
+        }
+    }
+
+    vector<Point2d> curveVertex(curveH.size());
+    for (vector<int>::size_type i = 0; i < curveH.size(); i++) {
+        curveVertex[i] = vectorOfVertex[curveH[i]];
+    }
+
+    return curveVertex;
+}
+vector<Point2d> parallelJarvisMarch(const vector<Point2d>& vectorOfVertex, vector<int>::size_type vectorSize) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    MPI_Datatype structPoint2d;
+    initializeStructPoint2d(&structPoint2d);
+
+    int delta = vectorSize / size;
+
+    vector<Point2d> localVectorOfVertex(delta);
+    vector<Point2d> localJarvisMarch, globalJarvisMarch;
+
+    MPI_Scatter(vectorOfVertex.data(), delta, structPoint2d, localVectorOfVertex.data(), delta,
+        structPoint2d, 0, MPI_COMM_WORLD);
+    localJarvisMarch = sequentialJarvisMarch(localVectorOfVertex);
+
+    if (rank != 0) {
+        MPI_Send(localJarvisMarch.data(), localJarvisMarch.size(), structPoint2d, 0, 0, MPI_COMM_WORLD);
+    } else {
+        for (int i = 1; i < size; i++) {
+            MPI_Status status;
+            int sendElements = 0;
+            MPI_Probe(i, 0, MPI_COMM_WORLD, &status);
+            MPI_Get_count(&status, structPoint2d, &sendElements);
+
+            vector<int>::size_type oldSize = localJarvisMarch.size();
+            localJarvisMarch.resize(oldSize + sendElements);
+            MPI_Recv(localJarvisMarch.data() + oldSize, sendElements, structPoint2d, i, 0,
+                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+        if (size != 1) {
+            int tail = vectorSize - size * delta;
+            if (tail) {
+                localVectorOfVertex = vector<Point2d>(vectorOfVertex.begin() +
+                    (vectorSize - tail), vectorOfVertex.end());
+                globalJarvisMarch = sequentialJarvisMarch(localVectorOfVertex);
+
+                vector<int>::size_type oldSize = localJarvisMarch.size();
+                localJarvisMarch.resize(oldSize + globalJarvisMarch.size());
+                for (vector<int>::size_type i = oldSize, j = 0; i < localJarvisMarch.size(); i++, j++) {
+                    localJarvisMarch[i] = globalJarvisMarch[j];
+                }
+            }
+        }
+        globalJarvisMarch = sequentialJarvisMarch(localJarvisMarch);
+    }
+
+    return globalJarvisMarch;
+}
+\end{lstlisting}
+\end{document}
