@@ -1,0 +1,566 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Вычисление многомерных интегралов с использованием многошаговой схемы (метод трапеций)»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Куклин А. Е.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Численное интегрирование - вычисление значения определенного интеграла с некоторой точностью. На данный момент существует множество различных способов решить интеграл численно. Одним из таких методов является метод трапеций.
+\par Метод трапеций, как и некоторые другие методы численного интегрирования, берет за основу определение интеграла. Для вычисления область интегрирования разбивается на отрезки, на каждом отрезке считается значение функции в левой и правой точках, полученное значение делится пополам и умножается на длину отрезка. В случае одномерной функции, использовав данную формулу на каждом отрезке разбиения, мы получим площадь трапеции на каждом интервале. Результатом сложения всех площадей будет площадь подынтегральной функции с некоторой точностью, то есть значение интеграла.
+\par Зачастую применение методов численного интегрирования является затратной по времени операцией. Конечно, всё зависит от того, с какой точностью мы хотим получить результат и от системных характеристик ЭВМ. Решение многомерных интегралов, как правило, требует больше времени, чем одномерных. Для решения данной проблемы чаще всего прибегают к методам параллельного программирования. Правильно распараллелив вычисление многомерного интеграла можно добиться значительного ускорения выполнения программы.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par Необходимо реализовать программу, вычисляющую значение многомерного интеграла методом трапеций. В программе должны быть реализованы последовательный и параллельный алгоритм решения. Для реализации параллельной части программы необходимо использовать библиотеку MPI.
+\par Также необходимо проверить корректность работы программы. Для этого нужно задействовать библиотеку модульного тестирования Google Test. При проверке корректности работы программы необходимо убедиться, что параллельная версия работает быстрее последовательной.
+\par По окончании работы нужно сделать выводы о том, насколько эффективно распараллеливание подобных алгоритмов. Выводы должны строиться на основании полученных данных о времени работы последовательной и параллельной реализации.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Для вычисления определенного интеграла методом трапеций используется следующий алгоритм:
+\par Пусть дан двумерный интеграл: $$I = {\int_a^b \int_c^d} f(x^1, x^2) \,dx^1\,dx^2$$
+\par Поделим отрезки [a, b] и [c, d] на равные части: таким образом, получим $h_{x^1} = \frac{b - a}{k}$, $h_{x^2} = \frac{d - c}{k}$, где k - произвольное натуральное число, $h_{x^1}$ - высота трапеции по оси x1, $h_{x^2}$ - высота трапеции по оси x2. Отрезки [$x^1_0, x^1_1$], [$x^1_1, x^1_2$], ... , [$x^1_{k-1}, x^1_k$], и [$x^2_0, x^2_1$], [$x^2_1, x^2_2$], ... , [$x^2_{k-1}, x^2_k$] будем называть отрезками разбиения. Вместе они дают плоскость разбиения подынтегральной функции.
+\par По всей плоскости разбиения вычислим следующее выражение: $s_m = \frac{f(x^1_{i-1}, x^2_{j-1}) + f(x^1_{i}, x^2_{j})}{2}$, где $i, j = \overline{1, k}$, $m = \overline{1, k^2}$. Полученные значения $s_m$ просуммируем.
+\par Найденную сумму умножим на высоты $h_{x^1}$ и $h_{x^2}$, тем самым получим приближенное значение искомого интеграла.
+\par Данный алгоритм применим для функций больших размерностей. Для $n$-мерной функции количество областей разбиения будет равным $k^n$, а количество высот трапеций - $n$.
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Для распараллеливания данного алгоритма, необходимо определить, на каких отрезках разбиения процессы будут вычислять интеграл. Каждый процесс получает количество областей разбиения, равное $\lfloor\frac{segNum}{procNum}\rfloor$, где $segNum$ - количество областей разбиения, $procNum$ - количество запускаемых процессов. Количество областей, равное остатку от деления дополнительно отдается процессу с рангом 0. Затем для каждой переменной подинтегральной функции вычисляется соответствующая высота трапеции. После в каждом процессе запускается подсчет функций в соответствующих областях. Далее полученные суммы редуцируются на нулевой процесс. Полученное значение умножается на все высоты, вычисленные ранее.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+\par Программа включает в себя 3 файла: main.cpp, trapezoid\_integral.cpp - исходные файлы, trapezoid\_integral.h - заголовочный файл.
+\par В заголовочном файле объявлены все функции, абстрактный класс Func для определения интерфейса подынтегральных функций и наследники класса Func - PiIntegral, FirstIntegral, SecondIntegral, ThirdIntegral. В классе Func объявлены protected поля:
+\begin{lstlisting}
+std::vector<double> lower_bound, upper_bound;
+\end{lstlisting}
+\par Поле lower\_bound - вектор, содержащий в себе нижние границы интегрирования всех переменных функции. Поле upper\_bound - вектор, содержащий верхние границы интегрирования всех переменных функции. \par Помимо полей, со спецификатором public в классе Func объявлены следующие функции:
+\begin{lstlisting}
+  virtual double CalculateFunc(std::vector<double> point) = 0;
+  virtual std::vector<double> GetLowerBound();
+  virtual std::vector<double> GetUpperBound();
+\end{lstlisting}
+\par Все перечисленные функции объявлены как виртуальные, чтобы их можно было перегрузить в классах-потомках. CalculateFunc - чистый виртуальный метод. GetLowerBound - виртуальный метод, возвращающий поле lower\_bound, а GetUpperBound - виртуальный метод, возвращающий поле upper\_bound. Конструктор в классе Func не определен, т.к. это абстрактный класс.
+\par В классах PiIntegral, FirstIntegral, SecondIntegral, ThirdIntegral объявлены соответствующие конструкторы, а так же объявлена перегрузка функции CalculateFunc.
+\par Так же, в файле trapezoid\_integral.h объявлены следующие функции:
+\begin{lstlisting}
+double CalculateTrapezoidIntegral(Func* func,
+                                  const std::vector<double>& lower_bound,
+                                  const std::vector<double>& upper_bound,
+                                  std::size_t segments_count,
+                                  std::size_t f_point, std::size_t l_point);
+double TrapezoidIntegralSequential(Func* func,
+                                   const std::vector<double>& lower_bound,
+                                   const std::vector<double>& upper_bound,
+                                   std::size_t segments_count);
+double TrapezoidIntegralParallel(Func* func,
+                                 const std::vector<double>& lower_bound,
+                                 const std::vector<double>& upper_bound,
+                                 std::size_t segments_count);
+\end{lstlisting}
+Функции TrapezoidIntegralSequential и TrapezoidIntegralParallel принимают на вход указатель на объект класса Func, вектор нижних границ интегрирования lower\_bound, вектор верхних границ интегрирования upper\_bound и количество отрезков, на которые мы разбиваем интегрирование segment\_count. Обе функции возвратят значение интеграла от функции func.
+\par Функция CalculateTrapezoidIntegral принимает на вход указатель на объект класса Func, вектор lower\_bound - вектор нижних границ интегрирования, upper\_bound - вектор верхник границ интегрирования, segment\_count - количество отрезков, на которые мы разбиваем область интегрирования, f\_point - номер начала отрезка интегрирования, l\_point - номер конца отрезка интегрирования.
+\par Реализации объявленных в trapezoid\_integral.h файле функций и методов находятся в файле trapezoid\_integral.cpp. Функции TrapezoidIntegralSequential и TrapezoidIntegralParallel определяют параметры f\_point и l\_point для функции CalculateTrapezoidIntegral. Так как\break TrapezoidIntegralSequential выполняет последовательное вычисление интеграла, то будет вызвана функция CalculateTrapezoidIntegral для подсчета интеграла в единственном процессе на всех отрезках разбиения. Функция TrapezoidIntegralParallel сначала определит, какое количество отрезков разбиения отдать каждому процессу, а затем вызовет во всех процессах функцию CalculateTrapezoidIntegral с соответствующими отрезками. Полученные на каждом процессе результаты редуцируются на нулевой процесс с примением операции MPI\_SUM.
+\par Файл main.cpp содержит реализацию набора unit-тестов, реализованных с помощью библиотеки Google Test. При запуске программы, main запустит тестирование.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+\par Корректность работы программы была проверена с помощью инструмента модульного тестирования Google Test. В тестах сравниваются полученные при выполнении последовательного и параллельного вычисления значения интегралов. Для тестирования были выбраны следующие подынтегральные функции:
+\begin{itemize}
+  \item $f(x, y) = x^2 + y^2; x, y \in [0, 1]$
+  \item $f(x, y) = xy; x, y \in [0, 2]$
+  \item $f(x, y, z) = sin(x) + cos(y) + sin(z); x, y, z \in [-1, 1]$
+\end{itemize}
+\par Помимо проверки корректности полученного результата, реализации проверялись на скорость работы. Тесты показали, что параллельный алгоритм работает быстрее на всех представленных функциях.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Скорость выполнения программы во многом зависит от архитектуры ЭВМ. Мною был использован ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i5-4570 CPU @ 3.20GHz, 3201 МГц, ядер: 4, логических процессоров: 4;
+\item Оперативная память (RAM): 8,00 ГБ;
+\item Операционная система: Майкрософт Windows 10 Pro
+\end{itemize}
+\par Эксперементы проведены на разных количествах процессов (proc\_count), представлено время работы последовательного алгоритма - time\_seq (в секундах), время работы параллельного алгоритма - time\_paral (в секундах) и ускорение (boost), которое считается по формуле boost = $\frac{time\_seq}{time\_paral}$.
+
+\par В следующих таблицах представлены результаты:.
+
+\begin{table}[!h]
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{3cm} | p{2cm} |}
+\hline
+proc\_count & time\_seq (s) & time\_paral (s) & boost  \\[5pt]
+\hline
+1        & 1.63253        & 1.63281      & 0.999831  \\
+2        & 1.6298         & 0.809603     & 2.01308   \\
+3        & 1.65863        & 0.54084      & 3.06677   \\
+4        & 1.62344        & 0.432001     & 3.75795   \\
+6        & 1.62081        & 0.443871     & 3.65153   \\
+8        & 1.62303        & 0.444979     & 3.64743	 \\
+12       & 1.62581        & 0.467139     & 3.48036	 \\
+\hline
+\end{tabular}
+\caption{Тестовая функция: $f(x, y) = x^2 + y^2; x, y \in [0, 1]$, количество отрезков разбинеия 1000000}
+\end{table}
+
+\begin{table}[!h]
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{3cm} | p{2cm} |}
+\hline
+proc\_count & time\_seq (s) & time\_paral (s) & boost  \\[5pt]
+\hline
+1        & 1.66608        & 1.69341      & 0.983861  \\
+2        & 1.60445        & 0.847927     & 1.8922    \\
+3        & 1.62014        & 0.593598     & 2.72935   \\
+4        & 1.60603        & 0.435211     & 3.69024   \\
+6        & 1.6032         & 0.441152     & 3.63411	 \\
+8        & 1.60158        & 0.450639     & 3.55402	 \\
+12       & 1.60857        & 0.45362      & 3.54607   \\
+\hline
+\end{tabular}
+\caption{Тестовая функция: $f(x, y) = x*y; x, y \in [0, 2]$, количество отрезков разбинеия 1000000}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+\par Исходя из приведенных результатов, можно сказать, что в общем случае увеличение количества процессов приводит к ускорению программы. Т.к. количество потоков процессора равно 4, то ускорение на количестве процессов большим 4 будет уменьшаться. Это происходит из-за конкуренции процессов за вычислительные ресурсы процессора: чем больше процессов будут участвовать, тем больше им придется конкурировать. Однако, существуют ситуации, когда ускорение превышает число процессов, участвующих в программе. Это связано с использованием кэш-памяти некоторыми процессами, что позволяет достичь ещё большего ускорения.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+\par В ходе данной задачи были реализованы последовательный и параллельный алгоритм вычисления многомерного интеграла методом трапеции, что позволило понять принципы работы параллельного программирования и библиотеки MPI. В результате эксперементов выяснилось, что распараллеливание подобных алгоритмов зачастую сильно ускоряет работу программы, что говорит о важности и актуальности проделанной работы.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Самарский А. А. Введение в численные методы: учебное пособие. М: Издательство «Лань», Санкт-Петербург, 2005. - 137 с.
+\item Wikipedia - электронный ресурс. URL: \url{https://ru.wikipedia.org/wiki/Message_Passing_Interface} (дата обращения: 02.12.2021)
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\par trapezoid\_integral.h
+\begin{lstlisting}
+// Copyright 2021 Kuklin Andrey
+#ifndef MODULES_TASK_3_KUKLIN_A_TRAPEZOID_INTEGRAL_TRAPEZOID_INTEGRAL_H_
+#define MODULES_TASK_3_KUKLIN_A_TRAPEZOID_INTEGRAL_TRAPEZOID_INTEGRAL_H_
+
+#include <vector>
+#include <cmath>
+
+class Func {
+ protected:
+  std::vector<double> lower_bound, upper_bound;
+
+ public:
+  virtual double CalculateFunc(std::vector<double> point) = 0;
+  virtual std::vector<double> GetLowerBound();
+  virtual std::vector<double> GetUpperBound();
+};
+
+class PiIntegral : public Func {
+ public:
+  PiIntegral();
+  double CalculateFunc(std::vector<double> point);
+};
+
+class FirstIntegral : public Func {
+ public:
+  FirstIntegral();
+  double CalculateFunc(std::vector<double> point);
+};
+
+class SecondIntegral : public Func {
+ public:
+  SecondIntegral();
+  double CalculateFunc(std::vector<double> point);
+};
+
+class ThirdIntegral : public Func {
+ public:
+  ThirdIntegral();
+  double CalculateFunc(std::vector<double> point);
+};
+
+double CalculateTrapezoidIntegral(Func* func,
+                                  const std::vector<double>& lower_bound,
+                                  const std::vector<double>& upper_bound,
+                                  std::size_t segments_count,
+                                  std::size_t f_point, std::size_t l_point);
+
+double TrapezoidIntegralSequential(Func* func,
+                                   const std::vector<double>& lower_bound,
+                                   const std::vector<double>& upper_bound,
+                                   std::size_t segments_count);
+
+double TrapezoidIntegralParallel(Func* func,
+                                 const std::vector<double>& lower_bound,
+                                 const std::vector<double>& upper_bound,
+                                 std::size_t segments_count);
+
+#endif  //  MODULES_TASK_3_KUKLIN_A_TRAPEZOID_INTEGRAL_TRAPEZOID_INTEGRAL_H_
+\end{lstlisting}
+\par trapezoid\_integral.cpp
+\begin{lstlisting}
+// Copyright 2021 Kuklin Andrey
+#include <mpi.h>
+#include <vector>
+#include "../../../modules/task_3/kuklin_a_trapezoid_integral/trapezoid_integral.h"
+
+std::vector<double> Func::GetLowerBound() { return lower_bound; }
+
+std::vector<double> Func::GetUpperBound() { return upper_bound; }
+
+PiIntegral::PiIntegral() {
+  lower_bound = {0.0};
+  upper_bound = {1.0};
+}
+
+double PiIntegral::CalculateFunc(std::vector<double> point) {
+  return 4.0 / (1.0 + point[0] * point[0]);
+}
+
+FirstIntegral::FirstIntegral() {
+  lower_bound = {0.0, 0.0};
+  upper_bound = {1.0, 1.0};
+}
+
+double FirstIntegral::CalculateFunc(std::vector<double> point) {
+  return point[0] * point[0] + point[1] * point[1];
+}
+
+SecondIntegral::SecondIntegral() {
+  lower_bound = {0.0, 0.0};
+  upper_bound = {2.0, 2.0};
+}
+
+double SecondIntegral::CalculateFunc(std::vector<double> point) {
+  return point[0] * point[1];
+}
+
+ThirdIntegral::ThirdIntegral() {
+  lower_bound = {-1.0, -1.0, -1.0};
+  upper_bound = {1.0, 1.0, 1.0};
+}
+
+double ThirdIntegral::CalculateFunc(std::vector<double> point) {
+  return sin(point[0]) + cos(point[1]) + sin(point[2]);
+}
+
+double CalculateTrapezoidIntegral(Func* func,
+                                  const std::vector<double>& lower_bound,
+                                  const std::vector<double>& upper_bound,
+                                  std::size_t segments_count,
+                                  std::size_t f_point, std::size_t l_point) {
+  std::size_t variables_count = lower_bound.size();
+  std::vector<double> height(variables_count);
+  double res = 0.0;
+
+  std::vector<double> curr_seg(variables_count);
+  std::size_t tmp_p = f_point;
+  for (std::size_t i = 0; i < variables_count; i++) {
+    curr_seg[i] = tmp_p % segments_count;
+    tmp_p /= segments_count;
+  }
+
+  for (std::size_t i = 0; i < variables_count; i++)
+    height[i] = (upper_bound[i] - lower_bound[i]) / segments_count;
+
+  std::vector<double> prev_point(variables_count), curr_point(variables_count);
+  for (std::size_t i = f_point; i < l_point; i++) {
+    for (std::size_t j = 0; j < variables_count; j++) {
+      prev_point[j] = lower_bound[j] + curr_seg[j] * height[j];
+      curr_point[j] = prev_point[j] + height[j];
+    }
+    res +=
+        (func->CalculateFunc(prev_point) + func->CalculateFunc(curr_point)) / 2;
+    curr_seg[0] += 1;
+    for (std::size_t j = 0; j < variables_count - 1; j++) {
+      if (curr_seg[j] == segments_count) {
+        curr_seg[j] = 0;
+        ++curr_seg[j + 1];
+      } else {
+        break;
+      }
+    }
+  }
+  for (std::size_t i = 0; i < variables_count; i++) res *= height[i];
+
+  return res;
+}
+
+double TrapezoidIntegralSequential(Func* func,
+                                   const std::vector<double>& lower_bound,
+                                   const std::vector<double>& upper_bound,
+                                   std::size_t segments_count) {
+  std::size_t points_count = 1, variables_count = lower_bound.size();
+  for (std::size_t i = 0; i < variables_count; i++)
+    points_count *= segments_count;
+  return CalculateTrapezoidIntegral(func, lower_bound, upper_bound,
+                                    segments_count, 0, points_count);
+}
+
+double TrapezoidIntegralParallel(Func* func,
+                                 const std::vector<double>& lower_bound,
+                                 const std::vector<double>& upper_bound,
+                                 std::size_t segments_count) {
+  int procSize, procRank;
+  MPI_Comm_size(MPI_COMM_WORLD, &procSize);
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+
+  std::size_t variables_count = lower_bound.size(), points_count = 1;
+
+  for (std::size_t i = 0; i < variables_count; i++)
+    points_count *= segments_count;
+
+  std::size_t local_segment_size = points_count / procSize;
+  std::size_t remenian_size = points_count % procSize;
+  std::size_t f_point = procRank * local_segment_size + remenian_size;
+  std::size_t l_point = (procRank + 1) * local_segment_size + remenian_size;
+
+  if (procRank == 0) f_point = 0;
+
+  double local_integral = CalculateTrapezoidIntegral(
+      func, lower_bound, upper_bound, segments_count, f_point, l_point);
+
+  double res = 0.0;
+  MPI_Reduce(&local_integral, &res, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+  return res;
+}
+\end{lstlisting}
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2021 Kuklin Andrey
+#include <gtest/gtest.h>
+#include <iostream>
+#include "./trapezoid_integral.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Integral_Sequential, can_solve_integral_sequential) {
+  Func *f = new PiIntegral();
+  ASSERT_NO_THROW(TrapezoidIntegralSequential(f, f->GetLowerBound(),
+                                              f->GetUpperBound(), 10));
+}
+
+TEST(Integral_Sequential, can_solve_integral_parallel) {
+  Func *f = new PiIntegral();
+  ASSERT_NO_THROW(
+      TrapezoidIntegralParallel(f, f->GetLowerBound(), f->GetUpperBound(), 10));
+}
+
+TEST(Integral_Sequential, seq_parall_is_eqv) {
+  Func *f = new PiIntegral();
+  int procRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+  double res_sequal = TrapezoidIntegralSequential(f, f->GetLowerBound(),
+                                                  f->GetUpperBound(), 100);
+  double res_paral =
+      TrapezoidIntegralParallel(f, f->GetLowerBound(), f->GetUpperBound(), 100);
+
+  if (procRank == 0) {
+    ASSERT_TRUE(fabs(res_paral - res_sequal) < 0.01);
+  }
+}
+
+TEST(Integral_Sequential, first_integral) {
+  Func *f = new FirstIntegral();
+  int procRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+  double res_sequal = TrapezoidIntegralSequential(f, f->GetLowerBound(),
+                                                  f->GetUpperBound(), 150);
+  double res_paral =
+      TrapezoidIntegralParallel(f, f->GetLowerBound(), f->GetUpperBound(), 150);
+
+  if (procRank == 0) {
+    ASSERT_TRUE(fabs(res_paral - res_sequal) < 0.01);
+  }
+}
+
+TEST(Integral_Sequential, second_integral) {
+  Func *f = new SecondIntegral();
+  int procRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+  double res_sequal = TrapezoidIntegralSequential(f, f->GetLowerBound(),
+                                                  f->GetUpperBound(), 200);
+  double res_paral =
+      TrapezoidIntegralParallel(f, f->GetLowerBound(), f->GetUpperBound(), 200);
+
+  if (procRank == 0) {
+    ASSERT_TRUE(fabs(res_paral - res_sequal) < 0.01);
+  }
+}
+
+TEST(Integral_Sequential, third_integral) {
+  Func *f = new ThirdIntegral();
+  int procRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+
+  double res_sequal = 0.0;
+  if (procRank == 0) {
+    res_sequal = TrapezoidIntegralSequential(f, f->GetLowerBound(),
+                                             f->GetUpperBound(), 100);
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  double res_paral =
+      TrapezoidIntegralParallel(f, f->GetLowerBound(), f->GetUpperBound(), 100);
+
+  if (procRank == 0) {
+    ASSERT_TRUE(fabs(res_paral - res_sequal) < 0.01);
+  }
+}
+
+TEST(Integral_Sequential, time_test) {
+  Func *f = new ThirdIntegral();
+  int procRank;
+  double start_time, end_time, seq_time, par_time;
+  MPI_Comm_rank(MPI_COMM_WORLD, &procRank);
+
+  double res_sequal = 0.0;
+  if (procRank == 0) {
+    start_time = MPI_Wtime();
+    res_sequal = TrapezoidIntegralSequential(f, f->GetLowerBound(),
+                                             f->GetUpperBound(), 100);
+    end_time = MPI_Wtime();
+    seq_time = end_time - start_time;
+    std::cout << "time seq: " << seq_time << "\n";
+    start_time = MPI_Wtime();
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+  double res_paral =
+      TrapezoidIntegralParallel(f, f->GetLowerBound(), f->GetUpperBound(), 100);
+
+  if (procRank == 0) {
+    end_time = MPI_Wtime();
+    par_time = end_time - start_time;
+    std::cout << "time par: " << par_time << "\n";
+    std::cout << "parall value: " << seq_time / par_time << "\n";
+    ASSERT_TRUE(fabs(res_paral - res_sequal) < 0.01);
+  }
+}
+
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners &listener =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listener.Release(listener.default_result_printer());
+  listener.Release(listener.default_xml_generator());
+
+  listener.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
