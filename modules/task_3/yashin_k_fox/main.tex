@@ -1,0 +1,690 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Умножение плотных матриц. Блочная схема, алгоритм Фокса»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-1 \\ Яшин К. Е.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\tableofcontents
+\newpage
+
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+
+Умножения матриц ~--- вычисления, которые постоянно присутствуют во время выполнения научных исследований, реализации алгоритмов в совершенно разных сферах научной и практической деятельности. Поэтому встает вопрос о том, как делать эти вычисления как можно быстрее.
+\par
+Классический алгоритм умножения матриц имеет кубическую сложность, то есть требует выполнения $n^3$ скалярных умножений и сложений. В связи с этим возникла необходимость разработать алгоритм, который будет иметь меньшую сложность, чтобы умножать довольно большие матрицы за не столь большое время.
+\par
+Одним из способов ускорить процесс матричного умножения стали параллельные вычисления. Существует два подхода к параллельному умножению матриц - ленточный и блочный. При блочном подходе перемножаемые и результирующая матрицы рассматриваются, как набор блоков. В данной работе пойдет речь об одном из блочных способов умножения матриц, а именно об алгоритме Фокса.
+
+\newpage
+
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+В рамках лабораторной работы необходимо реализовать алгоритм Фокса для вещественных чисел и классический алгоритм перемножения матриц.
+\par Для реализации параллельной версии необходимо использовать библиотеку межпроцессорного взаимодействия MPI. А также:
+\begin{itemize}
+    \item Протестировать правильность работы алгоритмов помощью тестов, реализованных на Google C++ Testing Framework. 
+    \item Сравнить время выполнения алгоритмов на матрицах разных размеров.
+    \item Сделать выводы об эффективности и применимости алгоритмов.
+\end{itemize}
+\newpage
+
+\section*{Метод решения}
+\addcontentsline{toc}{section}{Метод решения}
+В данном алгоритму матрицы разбиваются на блоки, представляющие собой подматрицы исходных матриц {\itshape A} и {\itshape B} размера {\itshape $n \times n$}. Количество блоков по горизонтали и вертикали являются одинаковым и равным {\itshape $q$} (т.е. размер всех блоков равен {\itshape $k \times k$}, {\itshape $k$} = {\itshape $k \times q$}). При таком представлении данных операция матричного умножения матриц А и B в блочном виде может быть представлена в виде:
+\par
+$$
+\begin{pmatrix}
+A_{00}& \ldots & A_{0q-1}\\
+& \ldots\\
+A_{q-10}& \ldots & A_{q-1q-1}
+\end{pmatrix}
+*
+\begin{pmatrix}
+B_{00}& \ldots & B_{0q-1}\\
+& \ldots\\
+B_{q-10}& \ldots & B_{n-1q-1}
+\end{pmatrix}
+=
+\begin{pmatrix}
+C_{00}& \ldots & C_{0q-1}\\
+&\ldots\\
+C_{q-10}& \ldots & C_{q-1q-1}
+\end{pmatrix}
+$$
+
+где каждый блок $C_{ij}$ матрицы {\itshape $C$} определяется в соответствии с выражением
+\par$$
+    C_{ij} = \sum_{s=0}^{q-1} A_{is} * B_{sj},\qquad 0 \le i,j \le n \qquad
+    $$
+\par Базовая подзадача в рамках реализации данного алгоритма ~--- вычисление всех элементов одного из блоков результирующей матрицы {\itshape $C$}. Для нумерации подзадач используются индексы размещаемых в подзадачах блоков матрицы {\itshape $C$}, т.е. подзадача {\itshape $(i,j)$} отвечает за вычисление блока {\itshape $C_{ij}$} – тем самым, набор подзадач образует квадратную решетку, соответствующую структуре блочного представления матрицы {\itshape $C$}.
+\par На каждой из базовых подзадач {\itshape $(i,j)$} располагается четыре матричных блока:
+\begin{itemize}
+    \item[-] блок {\itshape $C_{ij}$} матрицы {\itshape $C$}, вычисляемый подзадачей;
+    \item[-] блок {\itshape $A_{ij}$} матрицы {\itshape $A$}, размещаемый в подзадаче перед началом вычислений;
+    \item[-] блоки {\itshape $A_{ij}^{'}$ , $B_{ij}^{'}$} матриц {\itshape $A$} и {\itshape $B$}, получаемые подзадачей в ходе выполнения вычислений
+\end{itemize}
+\newpage
+
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+Для того, чтобы воспользоваться параллелизацией при реализации алгоритма Фокса, необходимо выполнить два шага ~--- построить топологию вычислительной системы и распределить блоки между процессами.
+В данном алгоритме используется двумерная декартова топология, сопоставляющая каждому процессу его координаты {\itshape $(i,j)$} в этой топологии.
+\parРаспределение блоков между процессами:
+\begin{itemize}
+    \item Инициализация.
+    \parКаждой из подзадач {\itshape $(i,j)$} передаются блоки {\itshape $A_{ij}, B_{ij}$} и обнуляются блоки {\itshape $C_{ij}$} на всех подзадачах.
+    \item Вычисления.
+    \parЗапускается цикл по {\itshape $m$} от {\itshape $0$} до {\itshape $q - 1$}.
+     \begin{itemize}
+        \item для каждой строки {\itshape $i$}, {\itshape $0 \le i \le q$} блок {\itshape $A_{ij}$} одного из процессов пересылается во все процессы этой же строки, индекс {\itshape $j$} пересылаемого блока определяется по формуле:
+             $$
+            {\mathit j = (i + l) \, mod \, q,}
+            $$
+        \item блок матрицы {\itshape $A$}, полученный при пересылке, и содержащийся в процессе {\itshape $(i,j)$} блок матрицы {\itshape $B$} перемножаются, и результат прибавляется к матрице {\itshape $C_{ij}$}; 
+        \item для каждого столбца {\itshape $j$}, {\itshape $0 \le j \le q - 1$} выполняется циклическая пересылка блоков матрицы {\itshape $B$}, содержащихся в каждом процессе {\itshape $(i,j)$} этого столбца, в направлении убывания номеров строк.
+    \end{itemize}
+\parПосле завершения цикла в каждом процессе будет содержаться матрица {\itshape $C_{ij}$}, равная соответствующему блоку произведения {\itshape $A  \times B$}. Главный процесс получает эти блоки.
+\end{itemize}
+\parТакже стоит отметить, что число процессов должно являтся полным квадратов некоторого целого числа, количество блоков по вертикали и по горизонтали ~--- квадратный корень из числа процессов. Это помогает достичь равномерной нагрузки на процессы.
+
+\newpage
+
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+В программе используются следующие функции:
+\par Последовательный алгоритм реализован в данной функции:
+\begin{lstlisting}
+int sequential_alg(double* A, double* B, double* C, int size);
+\end{lstlisting}
+\par В качестве входных параметров передаются ссылки на матрицы {\itshape $A, B$}, которые представлены, как вектора вещественных чисел, и их размер, а также ссылка на результирующую матрицу {\itshape $C$}. Возвращаемое значение ~--- {\itshape$-0$} или {\itshape$-1$}, {\itshape$0$} возвращается в случае успешного выполнения функции, а {\itshape$-1$} в случае поданного на вход некорректного значения размера матриц.
+\par Параллельный алгоритм Фокса реализован в функции:
+\begin{lstlisting}
+int fox(double* A, double* B, double* C, int size);
+\end{lstlisting}
+\par В качестве входных параметров передаются ссылки на матрицы {\itshape $A, B$}, которые представлены, как вектора вещественных чисел, и их размер, а также ссылка на результирующую матрицу {\itshape $C$}. Возвращаемое значение ~--- {\itshape$-0$} или {\itshape$-1$}, {\itshape$0$} возвращается в случае успешного выполнения функции, а {\itshape$-1$} в случае поданного на вход некорректного значения размера матриц или несоответствующего количества процессов.
+\parФункция, представленная выше, использует данную функцию:
+\begin{lstlisting}
+void fox_alg(double* A_block, double* A_mblock, double* B_block, double* C_block);
+\end{lstlisting}
+\par В качестве входных параметров передаются ссылки на блоки матриц {\itshape $A, B, C$}. Функция выполняет вычисления.
+\par Вспомогательная функция, генерирующая случайную матрицу с элементами вещественного типа:
+\begin{lstlisting}
+void random_matrix(double* matrix, int size);
+\end{lstlisting}
+\newpage
+
+\section*{Тестирование и эксперименты}
+\addcontentsline{toc}{section}{Тестирование и эксперименты}
+Корректность работы программы проверена с помощью тестов при помощи Google Testing Framework. Результат работы алгоритма сравнивался с заранее подсчитанными результатами перемножения известных матриц. Алгоритм работет корректно.
+\parСледующим шагом стало проведение экспериментов с эффективностью алгоритма Фокса. В таблице ниже представлены результаты сравнения параллельной реализации алгоритма Фокса и стандартного алгоритма перемножения матриц на матрицах разных размеров. Все вычисления производились на 4 процессах.
+
+\begin{table}[!h]
+    \centering
+    \begin{tabular}{ | l | l | l | l |}
+    \hline
+    \scriptsize{Размер матрицы} & \scriptsize{Последовательный алгоритм (сек.)} & \scriptsize{Параллельный алгоритм (сек.)} & \scriptsize{Ускорение}  \\ \hline
+    4   &   0.0000003    &   0.0037796    &   отсутствует \\ \hline
+    16   &   0.000002    &   0.00007    &   0.0385167  \\ \hline
+    64   &   0.0001697    &   0.0003489    &   0.486386  \\ \hline
+    100   &   0.0008375    &   0.0006687    &   1.25243  \\ \hline
+    256   &   0.0366463    &   0.0044546    &   8.22662  \\ \hline
+    \end{tabular}
+    \caption{Результаты тестов}
+    \end{table}
+    
+\parСтановится очевидно, что параллельная реализация очень эффективна на матрицах больших размеров, но на матрицах размером меньше {\itshape $100 \times 100$} эффективнее оказывается обычная реализация матричного умножения, что связано с тем, что на подготовку процессов к вычислениям тоже требуется некоторое время.
+\newpage
+
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения лабораторной работы был реализован параллельный алгоритм Фокса.
+\par С помощью реализованной программы, было получено сравнение эффективности работы параллельного алгоритма Фокса и классического алгоритма умножения матриц с точки зрения времени. Выяснилось, что на достаточно больших размерах матриц намного эффективнее оказывается использовать параллельный алгоритм. 
+\par Для подтверждения правильности работы программы написаны тесты с использованием Google Testing Framework.
+\newpage
+
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Sisoev}Сысоев А. В., Мееров И. Б., Свистунов А. Н., Курылев А. Л., Сенин А. В., Шишков А. В., Корняков К. В.,
+Сиднев А. А. Параллельное программирование в системах с общей памятью. Инструментальная поддержка, Нижний Новгород, 2007.
+\bibitem{intuit} Национальный Открытый Университет «ИНТУИТ». Академия: Интернет Университет Суперкомпьютерных Технологий. Курс: Теория и практика параллельных вычислений. Автор: Виктор Гергель. ISBN: 978-5-9556-0096-3. // URL: \url{https://intuit.ru/studies/courses/1091/293/info}
+\end{thebibliography}
+\newpage
+
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В этом разделе находится код лабораторной работы.
+\par fox.h:
+\begin{lstlisting}
+// Copyright 2021 Yashin Kirill
+
+#ifndef MODULES_TASK_3_YASHIN_K_FOX_FOX_H_
+#define MODULES_TASK_3_YASHIN_K_FOX_FOX_H_
+
+int fox(double* A, double* B, double* C, int size);
+int sequential_alg(double* A, double* B, double* C, int size);
+void random_matrix(double* matrix, int size);
+
+#endif  // MODULES_TASK_3_YASHIN_K_FOX_FOX_H_
+
+\end{lstlisting}
+
+\par fox.cpp:
+\begin{lstlisting}
+// Copyright 2021 Yashin Kirill
+
+#include <mpi.h>
+#include <cmath>
+#include <iostream>
+#include <ctime>
+#include <random>
+#include "../../../modules/task_3/yashin_k_fox/fox.h"
+
+#define ndims 2
+#define reoder true
+
+int procNum, rank, cart_size, block_size;
+int coords[2];
+MPI_Comm cart_communicator, row_communicator, column_communicator;
+
+void random_matrix(double* matrix, int size) {
+  std::mt19937 gen;
+  gen.seed(static_cast<unsigned int>(time(0)));
+  for (int i = 0; i < size * size; i++) {
+    matrix[i] = static_cast<float>(gen() % 100) / 10;
+  }
+}
+
+void fox_alg(double* A_block, double* A_mblock,
+            double* B_block, double* C_block) {
+  for (int it = 0; it < cart_size; it++) {
+    int root = (coords[0] + it) % cart_size;
+    if (coords[1] == root) {
+      for (int i = 0; i < block_size * block_size; i++) {
+        A_block[i] = A_mblock[i];
+      }
+    }
+    MPI_Bcast(A_block, block_size * block_size, MPI_DOUBLE, root, row_communicator);
+
+    double temp;
+    for (int i = 0; i < block_size; i++)
+      for (int j = 0; j < block_size; j++) {
+        temp = 0;
+        for (int k = 0; k < block_size; k++) {
+          temp += A_block[i * block_size + k] * B_block[k * block_size + j];
+        }
+        C_block[i * block_size + j] += temp;
+      }
+
+    int dest = coords[0] - 1;
+    if (coords[0] == 0) {
+      dest = cart_size - 1;
+    }
+    int source = coords[0] + 1;
+    if (coords[0] == cart_size - 1) {
+      source = 0;
+    }
+    MPI_Sendrecv_replace(B_block, block_size * block_size, MPI_DOUBLE, dest, 0,
+                        source, 0, column_communicator, MPI_STATUS_IGNORE);
+  }
+}
+
+int fox(double* A, double* B, double* C, int size) {
+  if (size <= 0) {
+    return -1;
+  }
+
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (procNum == 1) {
+    return sequential_alg(A, B, C, size);
+  } else {
+    cart_size = static_cast<int>(std::sqrt(procNum));
+    if (cart_size * cart_size != procNum) {
+      return -1;
+    }
+    if (size % cart_size != 0) {
+      return -1;
+    }
+    block_size = size / cart_size;
+
+    int elem_in_block = block_size * block_size;
+    double* A_block = new double[elem_in_block];
+    double* B_block = new double[elem_in_block];
+    double* C_block = new double[elem_in_block];
+    double* A_mblock = new double[elem_in_block];
+    for (int i = 0; i < elem_in_block; i++) {
+      C_block[i] = 0;
+    }
+
+    int dim_size[2] = {cart_size, cart_size};
+    int periods[2] = {false, false};
+    MPI_Cart_create(MPI_COMM_WORLD, ndims, dim_size, periods, reoder, &cart_communicator);
+    MPI_Cart_coords(cart_communicator, rank, ndims, coords);
+    int subdims[2] = {false, true};
+    MPI_Cart_sub(cart_communicator, subdims, &row_communicator);
+    subdims[0] = true;
+    subdims[1] = false;
+    MPI_Cart_sub(cart_communicator, subdims, &column_communicator);
+
+    double* rowbuff = new double[block_size * size];
+    if (coords[1] == 0) {
+      MPI_Scatter(A, block_size * size, MPI_DOUBLE, rowbuff,
+                  block_size * size, MPI_DOUBLE, 0, column_communicator);
+      MPI_Scatter(B, block_size * size, MPI_DOUBLE, rowbuff,
+                  block_size * size, MPI_DOUBLE, 0, column_communicator);
+    }
+    for (int i = 0; i < block_size; i++) {
+      MPI_Scatter(&rowbuff[i * size], block_size, MPI_DOUBLE, &(A_mblock[i * block_size]),
+                  block_size, MPI_DOUBLE, 0, row_communicator);
+      MPI_Scatter(&rowbuff[i * size], block_size, MPI_DOUBLE, &(B_block[i * block_size]),
+                  block_size, MPI_DOUBLE, 0, row_communicator);
+    }
+    delete[] rowbuff;
+
+    fox_alg(A_block, A_mblock, B_block, C_block);
+
+    rowbuff = new double[size * block_size];
+    for (int i = 0; i < block_size; i++) {
+      MPI_Gather(&C_block[i * block_size], block_size, MPI_DOUBLE,
+                &rowbuff[i * size], block_size, MPI_DOUBLE, 0, row_communicator);
+    }
+    if (coords[1] == 0) {
+      MPI_Gather(rowbuff, block_size * size, MPI_DOUBLE, C, block_size * size,
+                MPI_DOUBLE, 0, column_communicator);
+    }
+
+    delete[] rowbuff;
+    delete[] A_block;
+    delete[] B_block;
+    delete[] C_block;
+    delete[] A_mblock;
+
+    return 0;
+  }
+}
+
+int sequential_alg(double* A, double* B, double* C, int size) {
+  if (size <= 0) {
+    return -1;
+  }
+  for (int i = 0; i < size * size; i++) {
+    C[i] = 0;
+  }
+  double temp;
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      temp = 0;
+      for (int k = 0; k < size; k++) {
+        temp += A[i * size + k] * B[k * size + j];
+      }
+      C[i * size + j] += temp;
+    }
+  }
+  return 0;
+}
+
+\end{lstlisting}
+
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2021 Yashin Kirill
+
+#include <gtest/gtest.h>
+#include <cmath>
+#include "./fox.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(fox, Test_on_Matrix_size_4) {
+  int size = 4;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C = nullptr;
+  double* C_fox = nullptr;
+  double t_fox_end, t_fox_start, t_seq_end, t_seq_start;
+  int rank, procNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+
+  int cartSize = static_cast<int>(std::sqrt(procNum));
+  if (cartSize * cartSize == procNum && size % cartSize == 0) {
+    if (rank == 0) {
+      A = new double[size * size];
+      B = new double[size * size];
+      random_matrix(A, size);
+      random_matrix(B, size);
+      C = new double[size * size];
+      C_fox = new double[size * size];
+      t_seq_start = MPI_Wtime();
+      sequential_alg(A, B, C, size);
+      t_seq_end = MPI_Wtime() - t_seq_start;
+    }
+    if (rank == 0) {
+      t_fox_start = MPI_Wtime();
+    }
+    int result = fox(A, B, C_fox, size);
+    ASSERT_EQ(result, 0);
+    if (rank == 0) {
+      t_fox_end = MPI_Wtime() - t_fox_start;
+      for (int i = 0; i < size * size; ++i) {
+        ASSERT_NEAR(C_fox[i], C[i], 0.0001);
+      }
+    }
+
+    if (rank == 0) {
+      delete[] A;
+      delete[] B;
+      delete[] C;
+      delete[] C_fox;
+      std::cout << "Seq time (sec)" << t_seq_end << "\n"
+                << " Parallel time (sec) " << t_fox_end << std::endl;
+      std::cout << " Acceleration " << t_seq_end / t_fox_end << std::endl;
+    }
+  }
+}
+
+TEST(fox, Test_on_Matrix_size_16) {
+  int size = 16;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C = nullptr;
+  double* C_fox = nullptr;
+  double t_fox_end, t_fox_start, t_seq_end, t_seq_start;
+  int rank, procNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+
+  int cartSize = static_cast<int>(std::sqrt(procNum));
+  if (cartSize * cartSize == procNum && size % cartSize == 0) {
+    if (rank == 0) {
+      A = new double[size * size];
+      B = new double[size * size];
+      random_matrix(A, size);
+      random_matrix(B, size);
+      C = new double[size * size];
+      C_fox = new double[size * size];
+      t_seq_start = MPI_Wtime();
+      sequential_alg(A, B, C, size);
+      t_seq_end = MPI_Wtime() - t_seq_start;
+    }
+    if (rank == 0) {
+      t_fox_start = MPI_Wtime();
+    }
+    int result = fox(A, B, C_fox, size);
+    ASSERT_EQ(result, 0);
+    if (rank == 0) {
+      t_fox_end = MPI_Wtime() - t_fox_start;
+      for (int i = 0; i < size * size; ++i) {
+        ASSERT_NEAR(C_fox[i], C[i], 0.0001);
+      }
+    }
+
+    if (rank == 0) {
+      delete[] A;
+      delete[] B;
+      delete[] C;
+      delete[] C_fox;
+      std::cout << "Seq time (sec)" << t_seq_end << "\n"
+                << " Parallel time (sec) " << t_fox_end << std::endl;
+      std::cout << " Acceleration " << t_seq_end / t_fox_end << std::endl;
+    }
+  }
+}
+
+TEST(fox, Test_on_Matrix_size_64) {
+  int size = 64;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C = nullptr;
+  double* C_fox = nullptr;
+  double t_fox_end, t_fox_start, t_seq_end, t_seq_start;
+  int rank, procNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+
+  int cartSize = static_cast<int>(std::sqrt(procNum));
+  if (cartSize * cartSize == procNum && size % cartSize == 0) {
+    if (rank == 0) {
+      A = new double[size * size];
+      B = new double[size * size];
+      random_matrix(A, size);
+      random_matrix(B, size);
+      C = new double[size * size];
+      C_fox = new double[size * size];
+      t_seq_start = MPI_Wtime();
+      sequential_alg(A, B, C, size);
+      t_seq_end = MPI_Wtime() - t_seq_start;
+    }
+    if (rank == 0) {
+      t_fox_start = MPI_Wtime();
+    }
+    int result = fox(A, B, C_fox, size);
+    ASSERT_EQ(result, 0);
+    if (rank == 0) {
+      t_fox_end = MPI_Wtime() - t_fox_start;
+      for (int i = 0; i < size * size; ++i) {
+        ASSERT_NEAR(C_fox[i], C[i], 0.0001);
+      }
+    }
+
+    if (rank == 0) {
+      delete[] A;
+      delete[] B;
+      delete[] C;
+      delete[] C_fox;
+      std::cout << "Seq time (sec)" << t_seq_end << "\n"
+                << " Parallel time (sec) " << t_fox_end << std::endl;
+      std::cout << " Acceleration " << t_seq_end / t_fox_end << std::endl;
+    }
+  }
+}
+
+TEST(fox, Test_on_Matrix_size_100) {
+  int size = 100;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C = nullptr;
+  double* C_fox = nullptr;
+  double t_fox_end, t_fox_start, t_seq_end, t_seq_start;
+  int rank, procNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+
+  int cartSize = static_cast<int>(std::sqrt(procNum));
+  if (cartSize * cartSize == procNum && size % cartSize == 0) {
+    if (rank == 0) {
+      A = new double[size * size];
+      B = new double[size * size];
+      random_matrix(A, size);
+      random_matrix(B, size);
+      C = new double[size * size];
+      C_fox = new double[size * size];
+      t_seq_start = MPI_Wtime();
+      sequential_alg(A, B, C, size);
+      t_seq_end = MPI_Wtime() - t_seq_start;
+    }
+    if (rank == 0) {
+      t_fox_start = MPI_Wtime();
+    }
+    int result = fox(A, B, C_fox, size);
+    ASSERT_EQ(result, 0);
+    if (rank == 0) {
+      t_fox_end = MPI_Wtime() - t_fox_start;
+      for (int i = 0; i < size * size; ++i) {
+        ASSERT_NEAR(C_fox[i], C[i], 0.0001);
+      }
+    }
+
+    if (rank == 0) {
+      delete[] A;
+      delete[] B;
+      delete[] C;
+      delete[] C_fox;
+      std::cout << "Seq time (sec)" << t_seq_end << "\n"
+                << " Parallel time (sec) " << t_fox_end << std::endl;
+      std::cout << " Acceleration " << t_seq_end / t_fox_end << std::endl;
+    }
+  }
+}
+
+TEST(fox, Test_on_Matrix_size_256) {
+  int size = 256;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C = nullptr;
+  double* C_fox = nullptr;
+  double t_fox_end, t_fox_start, t_seq_end, t_seq_start;
+  int rank, procNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+
+  int cartSize = static_cast<int>(std::sqrt(procNum));
+  if (cartSize * cartSize == procNum && size % cartSize == 0) {
+    if (rank == 0) {
+      A = new double[size * size];
+      B = new double[size * size];
+      random_matrix(A, size);
+      random_matrix(B, size);
+      C = new double[size * size];
+      C_fox = new double[size * size];
+      t_seq_start = MPI_Wtime();
+      sequential_alg(A, B, C, size);
+      t_seq_end = MPI_Wtime() - t_seq_start;
+    }
+    if (rank == 0) {
+      t_fox_start = MPI_Wtime();
+    }
+    int result = fox(A, B, C_fox, size);
+    ASSERT_EQ(result, 0);
+    if (rank == 0) {
+      t_fox_end = MPI_Wtime() - t_fox_start;
+      for (int i = 0; i < size * size; ++i) {
+        ASSERT_NEAR(C_fox[i], C[i], 0.0001);
+      }
+    }
+
+    if (rank == 0) {
+      delete[] A;
+      delete[] B;
+      delete[] C;
+      delete[] C_fox;
+      std::cout << "Seq time (sec)" << t_seq_end << "\n"
+                << " Parallel time (sec) " << t_fox_end << std::endl;
+      std::cout << " Acceleration " << t_seq_end / t_fox_end << std::endl;
+    }
+  }
+}
+
+TEST(fox, Throw_Matrix_size_17) {
+  int size = 17;
+  double tmp = 0;
+  double* matrix = &tmp;
+  int procNum;
+  MPI_Comm_size(MPI_COMM_WORLD, &procNum);
+  if (procNum > 1) {
+    ASSERT_EQ(fox(matrix, matrix, matrix, size), -1);
+  }
+}
+
+TEST(fox, Throw_Matrix_size_0) {
+  int size = 0;
+  double tmp = 0;
+  double* matrix = &tmp;
+  ASSERT_EQ(fox(matrix, matrix, matrix, size), -1);
+  ASSERT_EQ(sequential_alg(matrix, matrix, matrix, size), -1);
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+\end{document}
