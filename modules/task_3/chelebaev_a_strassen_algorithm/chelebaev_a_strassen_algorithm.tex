@@ -1,0 +1,737 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Умножение плотных матриц. Элементы типа double. Алгоритм Штрассена»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Челебаев А. А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Алгоритм Штрассена - алгоритм для перемножения квадратных матриц, который может быть использован в качестве быстрой альтернативы стандартному кубическому алгоритму. Его суть заключается в следующем: исходные матрицы A и B, имеющие одинаковую размерность $n \times n$ (при этом n - степень двойки), делятся на подматрицы размера $\frac{n}{2} \times \frac{n}{2}$, через которые можно выразить произведение матриц A и B. Затем конечная матрица формируется путём сложений, вычитаний и умножений подматриц. Алгоритм Штрассена обладает большей вычислительной эффективностью на матрицах больших размерностей, нежели кубический, но проигрывает ему на малых, что делает алгоритм перемножения матриц Штрассена хорошим выбором для перемножения больших матриц($1024 \times 1024$, $2048 \times 2048$ и т.д.).
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе требуется реализовать последовательный и параллельный алгоритмы перемножения квадратных матриц, провести вычислительные эксперименты для сравнения времени работы алгоритмов, используя при этом фреймворк для разработки автоматических тестов Google Test, а также сделать выводы об эффективности реализованных алгоритмов. При этом параллельный алгоритм должен быть реализован при помощи программного интерфейса MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Пусть A и B - две матрицы размера $n \times n$, причём $n = 2^k$ - степень числа 2. Тогда можно разбить каждую из этих матриц на четыре подматрицы размера $\frac{n}{2} \times \frac{n}{2}$, через которые можно будет выразить исходное произведение матриц А и В:
+\par А = \begin{pmatrix}
+$A_1_1$ & $A_1_2$ \\
+$A_2_1$ & $A_2_2$
+\end{pmatrix},
+B = \begin{pmatrix}
+$B_1_1$ & $B_1_2$ \\
+$B_2_1$ & $B_2_2$
+\end{pmatrix},
+C = \begin{pmatrix}
+$C_1_1$ & $C_1_2$ \\
+$C_2_1$ & $C_2_2$
+\end{pmatrix}.
+\par По принципу блочного умножения, матрица С выражается через их произведение:
+\par C = \begin{pmatrix}
+$A_1_1B_1_1 + A_1_2B_2_1$ & $A_1_1B_1_2 + A_1_2B_2_2$ \\
+$A_2_1B_1_1 + A_2_2B_2_1$ & $A_2_1B_1_2 + A_2_2B_2_2$
+\end{pmatrix}.
+\par В правой части данной матрицы производится восемь умножений матриц размера $2^{k-1} \times 2^{k-1}$, и для её вычисления можно использовать любой алгоритм перемножения матриц размерности 2, использующий лишь сложения, вычитания и умножения. Штрассен предложил определить новые элементы:\\\\
+$P_1 = (A_1_1 + A_2_2)(B_1_1 + B_2_2)$\\
+$P_2 = (A_2_1 + A_2_2)B_1_1$\\
+$P_3 = A_1_1(B_1_2 - B_2_2)$\\
+$P_4 = A_2_2(B_2_1 - B_1_1)$\\
+$P_5 = (A_1_1 + A_1_2)B_2_2$\\
+$P_6 = (A_2_1 - A_1_1)(B_1_1 + B_1_2)$\\
+$P_7 = (A_1_2 - A_2_2)(B_2_1 + B_2_2)$
+\par Тогда элементы матрицы С выражаются по формулам:\\\\
+$C_1_1 = P_1 + P_4 - P_5 + P_7$\\
+$C_1_2 = P_3 + P_5$\\
+$C_2_1 = P_2 + P_4$\\
+$C_2_2 = P_1 - P_2 + P_3 + P_6$
+\par Каждое умножение можно совершать рекурсивно по той же процедуре, а сложение - обычным образом, при этом складывая $2^{2(k-1)}$ элементов. Общее время работы алгоритма оценивается как $O(n^{log_27})$, что меньше чем время работы тривиального(кубического) алгоритма - $O(n^{log_28})$.
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Процесс с рангом 0 генерирует две матрицы А и В типа double, заполненные случайными числами в заданном диапазоне, затем определяет элементы $A_1_1, A_1_2, A_2_1$ и $A_2_2$, а также $B_1_1, B_1_2, B_2_1, B_2_2$, после чего рекурсивно производятся умножения в элементах $P_1, P_2, P_3, P_4, P_5, P_6$ и $P_7$. При этом вызываются функции, находящие сумму и разность матриц, в которых каждому из процессов достаётся $k = \frac{\text{размерность матрицы}}{\text{количество процессов}}$ строк входящей матрицы. Если при этом есть остаток $rem$, он распределяется поровну между первыми $rem$ процессами.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Данная программа содержит заголовочный файл strassen\_algorithm.h, файл с реализацией функций strassen\_algorithm.cpp, а также файл с кодом тестов, main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного перемножения матриц.
+\par Функция для последовательного перемножения:
+\begin{lstlisting}
+Matrix sequentialMulti(const Matrix& a, const Matrix& b);
+\end{lstlisting}
+Оба параметра функции - матрицы, которые необходимо перемножить.
+\par Функции для параллельного
+алгоритма:
+\begin{lstlisting}
+Matrix parallelMulti(const Matrix& a, const Matrix& b);
+Matrix msum(const Matrix& a, const Matrix& b);
+Matrix msub(const Matrix& a, const Matrix& b);
+\end{lstlisting}
+Входные параметры данных функций совпадают с входными параметрами функции для последовательного алгоритма.
+\par Помимо этого, в файле strassen\_algorithm.cpp также содержится реализация функции areEqual, предназначенной для проверки корректности параллельного алгоритма перемножения матриц:
+\begin{lstlisting}
+bool areEqual(const Matrix& a, const Matrix& b, double delta);
+\end{lstlisting}
+Дело в том, что при умножении матриц накапливается погрешность в вычислениях в силу того, что мы работаем с элементами типа double, соответственно, необходимо проверять результат, учитывая эту погрешность. Входные параметры данной функции - матрицы А и В, а также погрешность delta, с учётом которой необходимо произвести проверку.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для того, чтобы подтвердить корректность работы данной программы, было разработано в общей сложности 5 тестов, в которых на вход подаются матрицы разных размерностей, а затем сравниваются результаты работы последовательного и параллельного алгоритмов перемножения матриц.
+\par Программа тестируется на матрицах следующих размеров:
+\begin{itemize}
+  \item $128 \times 128$
+  \item $256 \times 256$
+  \item $512 \times 512$
+  \item $1024 \times 1024$
+  \item $2048 \times 2048$
+\end{itemize}
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel i7-10610U, 1.8 ГГц (4.9 ГГц в режиме Turbo), количество ядер: 4;
+\item Оперативная память: 16 ГБ (DDR4), 2600 МГц;
+\item Операционная система: Windows 10.
+\end{itemize}
+
+\par Эксперименты проводились на различном числе процессов для перемножения матриц размера $512 \times 512$ и $1024 \times 1024$ с диапазоном элементов матриц от -100 до 100.
+
+\par Результаты экспериментов представлены в таблицах 1 и 2.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов ($1024 \times 1024$)}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 4.87123        & 2.12562     & 2.2916       \\
+2        & 9.45515        & 4.26684     & 2.2159       \\
+3        & 6.29241        & 2.45845     & 2.5595       \\
+4        & 6.35936        & 3.28534     & 1.9356       \\
+5        & 5.55723        & 3.95673     & 1.4045       \\
+6        & 4.48365        & 2.56612     & 1.7472       \\
+7        & 4.68334        & 2.57333     & 1.8199       \\
+9        & 4.61524        & 2.95223     & 1.5633	    \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов ($512 \times 512$)}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 0.39525        & 0.45673     & 0.8653       \\
+2        & 0.31231        & 0.52344     & 0.7436       \\
+3        & 0.31289        & 0.34345     & 0.9352       \\
+4        & 0.36732        & 0.43484     & 0.7235       \\
+5        & 0.36120        & 0.43247     & 0.8152       \\
+6        & 0.32834        & 0.38847     & 0.8997       \\
+7        & 0.33427        & 0.46327     & 0.7943       \\
+9        & 0.36719        & 0.58342     & 0.6973	    \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+Из данных, которые мы получили в рузультате проведения экспериментов (Таблицы 1 и 2),  легко сделать вывод, что параллельный алгоритм Штрассена работает медленнее последовательного тривиального на матрицах относительно малых размеров, но при этом начинает работать быстрее на размерностях, больших 512, с ускорением в почти в два раза, что говорит о хорошем результате.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в ходе этой лабораторной работы был разработан параллельный алгоритм Штрассена перемножения матриц. Тесты, проведённые нами, в сочетании с вычислительными экспериментами показали, что программа работает корректно и, что важно, эффективно относительно тривиального перемножения матриц.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Википедия - Электронный ресурс. URL: https://ru.wikipedia.org/wiki/
+\item Малашонок Г.И., Сатина Е.С., <<Алгоритмы умножения Карацубы и Штрассена для разреженных структур>>, 2004, 12 с.
+\item Habr - Электронный ресурс. URL: https://https://habr.com/ru/post/313258/
+\item Сергеев Е.С., Шаповалов О.В., Чалышев В.С.,. Крыжановский Д.И. <<Реализация алгоритма Штрассена на Intel(R) Xeon Phi(TM)>>, 2015.
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+strassen\_algorithm.h
+\begin{lstlisting}
+// Copyright 2021 Chelebaev Artem
+#ifndef MODULES_TASK_3_CHELEBAEV_STRASSEN_ALGORITHM_STRASSEN_ALGORITHM_H_
+#define MODULES_TASK_3_CHELEBAEV_STRASSEN_ALGORITHM_STRASSEN_ALGORITHM_H_
+
+#include <vector>
+#include <string>
+
+typedef std::vector<std::vector<double>> Matrix;
+
+Matrix createRandomMatrix(int n, int m, double max_number);
+
+Matrix sequentialMulti(const Matrix& a, const Matrix& b);
+Matrix parallelMulti(const Matrix& a, const Matrix& b);
+
+std::vector<Matrix> divide(const Matrix& a);
+Matrix connect(const Matrix& a, const Matrix& b, const Matrix& c, const Matrix& d);
+
+Matrix msum(const Matrix& a, const Matrix& b);
+Matrix msub(const Matrix& a, const Matrix& b);
+
+bool areEqual(const Matrix& a, const Matrix& b, double delta);
+
+
+#endif  // MODULES_TASK_3_CHELEBAEV_STRASSEN_ALGORITHM_STRASSEN_ALGORITHM_H_
+
+
+\end{lstlisting}
+strassen\_algorithm.cpp
+\begin{lstlisting}
+// Copyright 2021 Chelebaev Artem
+#include <mpi.h>
+#include <algorithm>
+#include <iostream>
+#include <random>
+#include <cmath>
+#include <ctime>
+#include "../chelebaev_strassen_algorithm/strassen_algorithm.h"
+
+Matrix createRandomMatrix(int n, int m, double max_number) {
+    std::random_device device;
+    std::mt19937 gen(device());
+    Matrix matrix(n, std::vector<double>(m));
+    std::uniform_real_distribution<> dis(-max_number, max_number);
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            matrix[i][j] = (dis(gen));
+        }
+    }
+    return matrix;
+}
+
+
+Matrix sequentialMulti(const Matrix& a, const Matrix& b) {
+    Matrix res(a.size(), std::vector<double>(b[0].size()));
+    for (size_t i = 0; i < a.size(); i++) {
+        for (size_t j = 0; j < b[0].size(); j++) {
+            for (size_t k = 0; k < a[0].size(); k++) {
+                res[i][j] += a[i][k] * b[k][j];
+            }
+        }
+    }
+    return res;
+}
+
+Matrix parallelMulti(const Matrix& a, const Matrix& b) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+
+    int n = a.size();
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (n <= 256 && my_rank == 0) {
+        return sequentialMulti(a, b);
+    }
+    if (n <= 256) {
+        return Matrix();
+    }
+    Matrix a11, a12, a21, a22;
+    Matrix b11, b12, b21, b22;
+    if (my_rank == 0) {
+        n = n / 2;
+        a11 = Matrix(n, std::vector<double>(n));
+        a12 = Matrix(n, std::vector<double>(n));
+        a21 = Matrix(n, std::vector<double>(n));
+        a22 = Matrix(n, std::vector<double>(n));
+
+        b11 = Matrix(n, std::vector<double>(n));
+        b12 = Matrix(n, std::vector<double>(n));
+        b21 = Matrix(n, std::vector<double>(n));
+        b22 = Matrix(n, std::vector<double>(n));
+
+        std::vector<Matrix> all;
+        all = divide(a);
+        a11 = all[0], a12 = all[1], a21 = all[2], a22 = all[3];
+
+        all = divide(b);
+        b11 = all[0], b12 = all[1], b21 = all[2], b22 = all[3];
+    }
+
+    Matrix p1, p2, p3, p4, p5, p6, p7;
+    p1 = parallelMulti(msum(a11, a22), msum(b11, b22));
+    p2 = parallelMulti(msum(a21, a22), b11);
+    p3 = parallelMulti(a11, msub(b12, b22));
+    p4 = parallelMulti(a22, msub(b21, b11));
+    p5 = parallelMulti(msum(a11, a12), b22);
+    p6 = parallelMulti(msub(a21, a11), msum(b11, b12));
+    p7 = parallelMulti(msub(a12, a22), msum(b21, b22));
+
+    Matrix c11 = msum(msum(p1, p4), msub(p7, p5));
+    Matrix c12 = msum(p3, p5);
+    Matrix c21 = msum(p2, p4);
+    Matrix c22 = msum(msub(p1, p2), msum(p3, p6));
+
+    return connect(c11, c12, c21, c22);
+}
+
+std::vector<Matrix> divide(const Matrix& a) {
+    int n = a.size() / 2;
+    std::vector<Matrix> result(4, Matrix(n));
+    for (int i = 0; i < n; i++) {
+        result[0][i] = { a[i].begin(), a[i].begin() + n };
+        result[1][i] = { a[i].begin() + n, a[i].begin() + 2 * n };
+        result[2][i] = { a[i + n].begin(), a[i + n].begin() + n };
+        result[3][i] = { a[i + n].begin() + n, a[i + n].begin() + 2 * n };
+    }
+    return result;
+}
+
+Matrix connect(const Matrix& a, const Matrix& b, const Matrix& c, const Matrix& d) {
+    int n = a.size();
+    Matrix result(n * 2, std::vector<double>(n * 2));
+    for (int i = 0; i < n; i++) {
+        result[i] = a[i];
+        result[i].insert(result[i].end(), b[i].begin(), b[i].end());
+        result[i + n] = c[i];
+        result[i + n].insert(result[i + n].end(), d[i].begin(), d[i].end());
+    }
+    return result;
+}
+
+Matrix msum(const Matrix& a, const Matrix& b) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    int n = 0;
+    if (my_rank == 0) {
+        n = a.size();
+    }
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    Matrix ca, cb, res;
+    if (my_rank == 0) {
+        int k = a.size() / tasks;
+        int rem = a.size() % tasks;
+        int ck = k;
+        if (my_rank < rem)
+            ck++;
+        int j = ck;
+        for (int i = 1; i < tasks; i++) {
+            int ck = k;
+            if (i < rem)
+                ck++;
+            MPI_Send(&ck, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            for (int c = 0; c < ck; c++, j++) {
+                MPI_Send(a[j].data(), n, MPI_DOUBLE,
+                    i, c + 1, MPI_COMM_WORLD);
+                MPI_Send(b[j].data(), n, MPI_DOUBLE,
+                    i, c + 1, MPI_COMM_WORLD);
+            }
+        }
+        res.assign(ck, std::vector<double>(n));
+        for (int i = 0; i < ck; i++) {
+            for (int j = 0; j < n; j++) {
+                res[i][j] = a[i][j] + b[i][j];
+            }
+        }
+    } else {
+        int ck;
+        MPI_Status Status;
+        MPI_Recv(&ck, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &Status);
+        ca.assign(ck, std::vector<double>(n));
+        cb.assign(ck, std::vector<double>(n));
+        for (int i = 0; i < ck; i++) {
+            MPI_Recv(ca[i].data(), n,
+                MPI_DOUBLE, 0, i + 1, MPI_COMM_WORLD, &Status);
+            MPI_Recv(cb[i].data(), n,
+                MPI_DOUBLE, 0, i + 1, MPI_COMM_WORLD, &Status);
+        }
+        res.assign(ck, std::vector<double>(n));
+        for (int i = 0; i < ck; i++) {
+            for (int j = 0; j < n; j++) {
+                res[i][j] = ca[i][j] + cb[i][j];
+            }
+        }
+        MPI_Send(&ck, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        for (int i = 0; i < ck; i++) {
+            MPI_Send(res[i].data(), n, MPI_DOUBLE, 0, i + 1, MPI_COMM_WORLD);
+        }
+    }
+    Matrix result;
+    if (my_rank == 0) {
+        result.assign(n, std::vector<double>(n));
+        int j = 0;
+        for (size_t i = 0; i < res.size(); i++, j++) {
+            result[j] = std::move(res[i]);
+        }
+        for (int i = 1; i < tasks; i++) {
+            int ck;
+            MPI_Status Status;
+            MPI_Recv(&ck, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &Status);
+            for (int c = 0; c < ck; c++, j++) {
+                MPI_Recv(result[j].data(), n, MPI_DOUBLE, i,
+                    c + 1, MPI_COMM_WORLD, &Status);
+            }
+        }
+    }
+
+    return result;
+}
+
+Matrix msub(const Matrix& a, const Matrix& b) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    int n = 0;
+    if (my_rank == 0) {
+        n = a.size();
+    }
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    Matrix ca, cb, res;
+    if (my_rank == 0) {
+        int k = a.size() / tasks;
+        int rem = a.size() % tasks;
+        int ck = k;
+        if (my_rank < rem)
+            ck++;
+        int j = ck;
+        for (int i = 1; i < tasks; i++) {
+            int ck = k;
+            if (i < rem)
+                ck++;
+            MPI_Send(&ck, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+            for (int c = 0; c < ck; c++, j++) {
+                MPI_Send(a[j].data(), n, MPI_DOUBLE,
+                    i, c + 1, MPI_COMM_WORLD);
+                MPI_Send(b[j].data(), n, MPI_DOUBLE,
+                    i, c + 1, MPI_COMM_WORLD);
+            }
+        }
+        res.assign(ck, std::vector<double>(n));
+        for (int i = 0; i < ck; i++) {
+            for (int j = 0; j < n; j++) {
+                res[i][j] = a[i][j] - b[i][j];
+            }
+        }
+    } else {
+        int ck;
+        MPI_Status Status;
+        MPI_Recv(&ck, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &Status);
+        ca.assign(ck, std::vector<double>(n));
+        cb.assign(ck, std::vector<double>(n));
+        for (int i = 0; i < ck; i++) {
+            MPI_Recv(ca[i].data(), n,
+                MPI_DOUBLE, 0, i + 1, MPI_COMM_WORLD, &Status);
+            MPI_Recv(cb[i].data(), n,
+                MPI_DOUBLE, 0, i + 1, MPI_COMM_WORLD, &Status);
+        }
+        res.assign(ck, std::vector<double>(n));
+        for (int i = 0; i < ck; i++) {
+            for (int j = 0; j < n; j++) {
+                res[i][j] = ca[i][j] - cb[i][j];
+            }
+        }
+        MPI_Send(&ck, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+        for (int i = 0; i < ck; i++) {
+            MPI_Send(res[i].data(), n, MPI_DOUBLE, 0, i + 1, MPI_COMM_WORLD);
+        }
+    }
+    Matrix result;
+    if (my_rank == 0) {
+        result.assign(n, std::vector<double>(n));
+        int j = 0;
+        for (size_t i = 0; i < res.size(); i++, j++) {
+            result[j] = std::move(res[i]);
+        }
+        for (int i = 1; i < tasks; i++) {
+            int ck;
+            MPI_Status Status;
+            MPI_Recv(&ck, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &Status);
+            for (int c = 0; c < ck; c++, j++) {
+                MPI_Recv(result[j].data(), n, MPI_DOUBLE, i,
+                    c + 1, MPI_COMM_WORLD, &Status);
+            }
+        }
+    }
+
+    return result;
+}
+
+bool areEqual(const Matrix& a, const Matrix& b, double delta) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < a.size(); i++) {
+        if (a[i].size() != b[i].size()) {
+            return false;
+        }
+        for (size_t j = 0; j < a[i].size(); j++) {
+            if (std::abs(a[i][j] - b[i][j]) > delta) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Chelebaev Artem
+#include <gtest/gtest.h>
+#include <vector>
+#include "../chelebaev_strassen_algorithm/strassen_algorithm.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Multiply, Matrix128) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    Matrix a, b;
+    double stime, ptime;
+    if (my_rank == 0) {
+        int n = 128, m = 128;
+        double max_num = 100.0;
+        a = createRandomMatrix(n, m, max_num);
+        b = createRandomMatrix(n, m, max_num);
+    }
+    clock_t startp = clock();
+    Matrix res = parallelMulti(a, b);
+    ptime = (clock() - startp) / static_cast<double>(CLOCKS_PER_SEC);
+    if (my_rank == 0) {
+        double delta = 0.1;
+        clock_t starts = clock();
+        Matrix seq = sequentialMulti(a, b);
+        stime = (clock() - starts) / static_cast<double>(CLOCKS_PER_SEC);
+        std::cout << "Sequential time: " << stime << std::endl;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        ASSERT_TRUE(areEqual(seq, res, delta));
+    }
+}
+
+TEST(Multiply, Matrix256) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    Matrix a, b;
+    double stime, ptime;
+    if (my_rank == 0) {
+        int n = 256, m = 256;
+        double max_num = 100.0;
+        a = createRandomMatrix(n, m, max_num);
+        b = createRandomMatrix(n, m, max_num);
+    }
+    clock_t startp = clock();
+    Matrix res = parallelMulti(a, b);
+    ptime = (clock() - startp) / static_cast<double>(CLOCKS_PER_SEC);
+    if (my_rank == 0) {
+        double delta = 0.1;
+        clock_t starts = clock();
+        Matrix seq = sequentialMulti(a, b);
+        stime = (clock() - starts) / static_cast<double>(CLOCKS_PER_SEC);
+        std::cout << "Sequential time: " << stime << std::endl;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        ASSERT_TRUE(areEqual(seq, res, delta));
+    }
+}
+
+TEST(Multiply, Matrix512) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    Matrix a, b;
+    double stime, ptime;
+    if (my_rank == 0) {
+        int n = 512, m = 512;
+        double max_num = 100.0;
+        a = createRandomMatrix(n, m, max_num);
+        b = createRandomMatrix(n, m, max_num);
+    }
+    clock_t startp = clock();
+    Matrix res = parallelMulti(a, b);
+    ptime = (clock() - startp) / static_cast<double>(CLOCKS_PER_SEC);
+    if (my_rank == 0) {
+        double delta = 0.1;
+        clock_t starts = clock();
+        Matrix seq = sequentialMulti(a, b);
+        stime = (clock() - starts) / static_cast<double>(CLOCKS_PER_SEC);
+        std::cout << "Sequential time: " << stime << std::endl;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        ASSERT_TRUE(areEqual(seq, res, delta));
+    }
+}
+
+TEST(Multiply, Matrix1024) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    Matrix a, b;
+    double stime, ptime;
+    if (my_rank == 0) {
+        int n = 1024, m = 1024;
+        double max_num = 100.0;
+        a = createRandomMatrix(n, m, max_num);
+        b = createRandomMatrix(n, m, max_num);
+    }
+    clock_t startp = clock();
+    Matrix res = parallelMulti(a, b);
+    ptime = (clock() - startp) / static_cast<double>(CLOCKS_PER_SEC);
+    if (my_rank == 0) {
+        double delta = 0.1;
+        clock_t starts = clock();
+        Matrix seq = sequentialMulti(a, b);
+        stime = (clock() - starts) / static_cast<double>(CLOCKS_PER_SEC);
+        std::cout << "Sequential time: " << stime << std::endl;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        ASSERT_TRUE(areEqual(seq, res, delta));
+    }
+}
+
+TEST(Multiply, Matrix2048) {
+    int tasks, my_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &tasks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    Matrix a, b;
+    double stime, ptime;
+    if (my_rank == 0) {
+        int n = 2048, m = 2048;
+        double max_num = 100.0;
+        a = createRandomMatrix(n, m, max_num);
+        b = createRandomMatrix(n, m, max_num);
+    }
+    clock_t startp = clock();
+    Matrix res = parallelMulti(a, b);
+    ptime = (clock() - startp) / static_cast<double>(CLOCKS_PER_SEC);
+    if (my_rank == 0) {
+        double delta = 0.5;
+        clock_t starts = clock();
+        Matrix seq = sequentialMulti(a, b);
+        stime = (clock() - starts) / static_cast<double>(CLOCKS_PER_SEC);
+        std::cout << "Sequential time: " << stime << std::endl;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        ASSERT_TRUE(areEqual(seq, res, delta));
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
