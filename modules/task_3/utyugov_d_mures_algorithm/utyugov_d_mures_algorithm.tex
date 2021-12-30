@@ -1,0 +1,541 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поиск кратчайших путей из одной вершины. Алгоритм Мура»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Утюгов Д. Е.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Задача о кратчайшем пути считается одной из наиболее важных стандартных задач теории графов. С такой задачей часто сталкиваются, например, при нахождении маршрута в GPS-навигаторе. Соответственно для решения этой задачи существует множество различных методов. Мы рассмотрим алгоритм Мура, который также называют алгоритмом Беллмана-Форда. Он выделяется тем, что некоторые ребра могут иметь отрицательный вес.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В рамках поставленной задачи необходимо реализовать алгоритм Мура поиска кратчайших путей, провести эксперименты для сравнения времени работы алгоритма на одном и нескольких процессах. Требуется сделать выводы об эффективности реализованного алгоритма. Распараллеливание программы реализуется с помощью библиотеки MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Пусть $G=(V,A)$, $s$ - вершина начала пути, $t$ - конец пути, $w$ - вес ребра. Всем вершинам приписываются метки, но нет деления на временные и постоянные. Корректировка меток идет по правилу $$d(v_i)=min(d_{стар}(v_i), d(v*)+w(v*, v_j)$$
+\par Сам алгоритм состоит из двух этапов:
+\par Первый этап. Нахождение длины кратчайшего пути от s до остальных вершин.
+\par Шаг 1: Начальные значения. $$d(s) = 0; d(v_j)=\infty, Q = {v*}$$
+где $Q$ - множество вершин в очереди, $V*$ - соседние вершины.
+\par Шаг 2: Корректирование вершин в очереди $Q$.
+\par Берем из начала очереди $Q$ веришну, удаляя ее из очереди. Корректируем метку. Если $d_{нов}(v_i)<d_{стар}(v_i)$, то добавляем в очередь соседние вершины, а также сохраняем вершину, из которой построен новый путь (это понадобится для воссоздания пути). В ином случае продолжается ход по вершинам.
+\par Шаг 3: Завершение первого этапа.
+\par Если $Q$ - пустое множество, то первый там завершается. В ином случае возвращаемся ко второму шагу.
+\par Второй этап. Построение путей от $s$ к $t$.
+\par Шаг 4: Воссоздание путей.
+\par Берем вершину $t$ и смотрим на ее предка - вершину, из которой получен кротчайший путь. Повторяем это действие до тех пор, пока предком не станет вершина $s$. Рекурсируем полученный список и получаем путь из $s$ в $t$
+\par В результате работы алгоритма получаем двумерный массив с путями к каждой из вершин.
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Процесс с рангом 0 выполняет первый шаг - создание начальных условий. Далее начинает второй шаг - берет вершину из очереди, удаляя ее от туда. Собирает данные о расстояниях, названиях вершин и весе ребра между вершинами и отправляет процессам. На одну соседнюю вершину приходится одно сообщение. Если у нас 100 соседних вершин, то нулевой процесс отправит на вычисления 100 запросов другим процессам.
+\par Просмотрев все соседние вершины, нулевой процесс начинает собирать результаты вычислений с процессов. Число принятий сообщений равняется числу отправленных запросов. В зависимости от результата, нулевой процесс обновляет очередь и переписывает новое расстояние, или ничего не делает.
+\par Приняв все данные, если очередь не пуста, нулевой процесс возращается к второму шагу. Если очередь пуста, он отправляет всем процессам сигнал, что больше сообщения он отправлять не будет.
+\par Остальные процессы ожидают сообщения от нулевого. Получив данные, процесс вычисляет расстояние и сравнивает с предыдущим результатом. Если новый результат меньше старого, процесс отправляет главному новый результат, иначе он сообщает главному процессу, что изменений делать не надо.
+\par Если процесс получил сигнал от нулевого процесса, что больше сообщения получать не надо - он прекращает свою работу.
+\par Когда очередь пуста, нулевой процесс выполняет шаг 4 - воссоздает кратчайшие пути.
+\newpage
+
+% Программная реализация
+\section*{Программная реализация}
+\addcontentsline{toc}{section}{Программная реализация}
+Программа реализована в трех файлах: заголовочный файл mures\_algorithm.h и два файла исходного кода mures\_algorithm.cpp, main.cpp.
+\par mures\_algorithm.h содержит в себе структуру ребра и два прототипа функций.
+\par Структура ребра:
+\begin{lstlisting}
+struct edge {
+  int x, y, w;
+};
+\end{lstlisting}
+$x,y$ - соседние вершины, $w$ - вес ребра. Ребро направлено из $x$ в $y$.
+\par Функция, создающая ребро:
+\begin{lstlisting}
+void add_edge(std::vector<edge> *e, int x, int y, int w);
+\end{lstlisting}
+Первый параметр - вектор, содержащий структуры. Остальные параметры соответствуют элементам структуры.
+\par Функция, реализующая алгоритм Мура:
+\begin{lstlisting}
+std::vector<std::vector<int>> mure(std::vector<edge> e, int v, int rootv);
+\end{lstlisting}
+Первый параметр - вектор ребер. Второй параметр - количество вершин. Третий параметр - вершина, из которой ищутся пути.
+\par mures\_algorithm.cpp содержит реализацию функций, объявленных в заголовочном файле. 
+\par main.cpp содержит тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Проверка корректности программы реализованная с помощью библиотеки Google Test. Всего разработано 5 тестов. В каждом тесте представлялся какой-то граф, для которого результат работы алгоритма мне уже известен.
+\par Были проведены следующие тесты:
+\begin{itemize}
+  \item Небольшой путь с ветвлениями.
+  \item Тот же граф с другой начальной вершиной.
+  \item Граф "колесо" - замкнутый путь вершин, к которому добавляется вершина, имеющая ребро с каждой другой.
+  \item Тот же граф с другой начальной вершиной.
+  \item Полный граф с большим количеством вершин (100000).
+\end{itemize}
+\par Все тесты успешно пройдены, что подтверждает корректность реализованного алгоритма.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Я провел вычислительные эксперементы для третьего и пятого теста.
+\par Для третьего теста время работы программы оказалось слишком низким - на это время влияют посторонние процессы в компьютере, каждый запуск показывает время, сильно отличающиеся от предыдущего запуска, поэтому корректно будет показать эксперимент с пятым тестом.
+\par Полный граф с сотней тысяч вершин. Результатц экспериментов в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты работы теста 5}
+\centering
+\begin{tabular}{| p{1cm} | p{3cm} | p{4cm} | p{3cm} |}
+\hline
+Число процессов & Последовательная работа алгоритма & Параллельная работа алгоритма & Эффективность  \\[5pt]
+\hline
+1        & 2.8134        & 2.7432     & 0.0702     \\
+2        & 2.9516        & 2.3411     & 0.6105       \\
+3        & 3.0331        & 1.9743     & 1.0588       \\
+7        & 2.9815        & 1.4319     & 1.5496       \\
+\hline
+\end{tabular}
+\end{table}
+\newpage
+
+% Вывод
+\section*{Вывод}
+\addcontentsline{toc}{section}{Вывод}
+В рамках поставленной задачи были разработаны последовательный и параллельный алгоритм Мура для поиска кратчайших путей из вершины. Были проведены тесты и эксперименты, по результатам которых можно сделать вывод, что параллельный алгоритм работает быстрее и эффективнее, чем последовательный. Увеличение процессов ведет за собой уменьшение времени работы программы. Важно заметить, что была достигнута разница в два раза между временами параллельного и последовательного алгоритмов.
+Из данных, полученных в результате экспериментов (см. Таблицу 1), можно сделать вывод, что параллельный алгоритм работает быстрее, чем последовательный. Можно заметить, что с увеличением числа процессов растёт ускорение. Однако, начиная с некоторого количества процессов, ускорение начинает немного уменьшаться. Это связано с тем, что псевдослучайные числа генерируются только в одном процессе, а затем частями передаются из этого процесса во все остальные процессы, соответственно, чем больше процессом, тем больше времени уходит на распределение данных. Несмотря на это, на относительно небольшом количестве процессом при большом количестве случайных точек удаётся достичь двукратного ускорения, что является хорошим результатом. Стоит также отметить, что на тестах с более простыми подынтегральными функциями и с меньшей размерностью (например, в 1-ом тесте) удаётся достичь трёхкратного ускорения (см. Таблицу 2).
+
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Алгоритм Беллмана-Мура (алгоритм корректировки меток) StudFiles - Электронный ресурс. URL: https://studfile.net/preview/9563037/page:5/
+\item Википедия - Электронный ресурс. URL: https://ru.wikipedia.org/wiki/Алгоритм\_Беллмана\_-\_Форда
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+mures\_algorithmh
+\begin{lstlisting}
+// Copyright 2021 Utyugov Denis
+#ifndef MODULES_TASK_3_UTYUGOV_D_MURES_ALGORITHM_MURES_ALGORITHM_H_
+#define MODULES_TASK_3_UTYUGOV_D_MURES_ALGORITHM_MURES_ALGORITHM_H_
+
+#include <vector>
+
+struct edge {
+  int x, y, w;
+};
+const int INF = 1000;
+
+void add_edge(std::vector<edge> *e, int x, int y, int w);
+std::vector<std::vector<int>> mure(std::vector<edge> e, int v, int rootv);
+
+#endif  // MODULES_TASK_3_UTYUGOV_D_MURES_ALGORITHM_MURES_ALGORITHM_H_
+
+\end{lstlisting}
+mures\_algoritn.cpp
+\begin{lstlisting}
+// Copyright 2021 Utyugov Denis
+#include "../../../modules/task_3/utyugov_d_mures_algorithm/mures_algorithm.h"
+
+#include <mpi.h>
+
+#include <queue>
+#include <string>
+#include <vector>
+#include <iostream>
+
+void add_edge(std::vector<edge>* e, int x, int y, int w) {
+  edge e_n;
+  e_n.x = x;
+  e_n.y = y;
+  e_n.w = w;
+  (*e).push_back(e_n);
+}
+
+std::vector<std::vector<int>> mure(std::vector<edge> e, int v, int rootv) {
+  int size, rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  int var = 0;
+  int proc_calc = 1;
+  int* dist = new int[v];
+  int* buff = new int[5];
+  int* p = new int[v];
+  int n = e.size();
+  std::queue<int> Q;
+  int act = rootv;
+  int countS = 0;
+
+  Q.push(rootv);
+
+  if (rank == 0) {
+    for (int i = 0; i < v; i++) {
+      dist[i] = INF;
+      p[i] = -1;
+    }
+    dist[rootv] = 0;
+    p[rootv] = rootv;
+    while (!(Q.empty())) {
+      act = Q.front();
+      Q.pop();
+      proc_calc = 1;
+
+      for (int i = 0; i < n; i++) {
+        if (e[i].x == act) {
+          if (size > 1) {
+            buff[0] = e[i].y;
+            buff[1] = dist[e[i].x];
+            buff[2] = dist[e[i].y];
+            buff[3] = e[i].w;
+            buff[4] = e[i].x;
+            MPI_Send(buff, 5, MPI_INT, proc_calc, 0, MPI_COMM_WORLD);
+            proc_calc++;
+            countS++;
+            if (proc_calc >= size) {
+              proc_calc = 1;
+            }
+          } else {
+            if (dist[e[i].y] > dist[e[i].x] + e[i].w) {
+              Q.push(e[i].y);
+              dist[e[i].y] = dist[e[i].x] + e[i].w;
+              p[e[i].y] = e[i].x;
+            }
+          }
+        }
+      }
+      if (size > 1) {
+        for (int i = 0; i < countS; i++) {  // count[act]
+          MPI_Recv(buff, 5, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD,
+                   MPI_STATUS_IGNORE);
+          if (buff[3] == 1) {
+            Q.push(buff[0]);
+            dist[buff[0]] = buff[2];
+            p[buff[0]] = buff[4];
+          }
+        }
+        countS = 0;
+      }
+    }
+    if (size > 1) {
+      buff[0] = -1;
+      for (int i = 1; i < size; i++) {
+        MPI_Send(buff, 5, MPI_INT, i, 0, MPI_COMM_WORLD);
+      }
+    }
+
+  } else {  // rank!=0
+    while (true) {
+      MPI_Recv(buff, 5, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      if (buff[0] == -1) {
+        break;
+      }
+      var = buff[1] + buff[3];
+
+      if (buff[2] > var) {
+        buff[2] = var;
+        buff[3] = 1;
+        MPI_Send(buff, 5, MPI_INT, 0, 0, MPI_COMM_WORLD);
+      } else {
+        buff[3] = 0;
+        MPI_Send(buff, 5, MPI_INT, 0, 0, MPI_COMM_WORLD);
+      }
+    }
+  }
+  std::vector<std::vector<int>> roads(v, std::vector<int>());
+  // roads.clear();
+  if (rank == 0) {
+    for (int i = 0; i < v; i++) {
+      var = i;
+      while (true) {
+        if (p[var] == -1) {
+          roads[i].push_back(-1);
+          break;
+        }
+        roads[i].push_back(p[var]);
+        if (p[var] == rootv) {
+          break;
+        } else {
+          var = p[var];
+        }
+      }
+    }
+  }
+
+  delete[] dist;
+  delete[] p;
+  delete[] buff;
+
+  return roads;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Utyugov Denis
+
+#include <gtest/gtest.h>
+#include <vector>
+#include "./mures_algorithm.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Parallel_Operations_MPI, Test_Alg) {
+  int rank, size;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (size != 3) {
+    std::vector<edge> e;
+    // if (rank == 0) {
+    for (int i = 0; i < 7; i++) {
+      add_edge(&e, i, i + 1, i + 1);
+    }
+
+    add_edge(&e, 0, 7, 6);
+    add_edge(&e, 6, 7, 6);
+    add_edge(&e, 7, 3, 5);
+    add_edge(&e, 7, 5, -2);
+    std::vector<std::vector<int>> a = mure(e, 8, 0);
+
+    std::vector<int> b;
+    for (int i = 3; i >= 0; i--) {
+      b.push_back(i);
+    }
+    if (rank == 0) {
+      ASSERT_EQ(b, a[4]);
+    }
+  }
+}
+
+TEST(Parallel_Operations_MPI, EQ_Road) {
+  int rank, size;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (size != 3) {
+    std::vector<edge> e;
+    // if (rank == 0) {
+    for (int i = 0; i < 7; i++) {
+      add_edge(&e, i, i + 1, i + 1);
+    }
+
+    add_edge(&e, 0, 7, 6);
+    add_edge(&e, 6, 7, 6);
+    add_edge(&e, 7, 3, 5);
+    add_edge(&e, 7, 5, -2);
+    std::vector<std::vector<int>> a = mure(e, 8, 0);
+
+    std::vector<int> b;
+    for (int i = 3; i >= 0; i--) {
+      b.push_back(i);
+    }
+    if (rank == 0) {
+      ASSERT_EQ(b, a[4]);
+    }
+  }
+}
+
+TEST(Parallel_Operations_MPI, Try_Wheel_graph) {
+  int rank, size;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (size != 3) {
+    std::vector<edge> e;
+    for (int i = 0; i < 9; i++) {
+      add_edge(&e, i, i + 1, i + 1);
+    }
+
+    add_edge(&e, 0, 9, 10);
+    add_edge(&e, 1, 9, 5);
+    add_edge(&e, 2, 9, 5);
+    add_edge(&e, 3, 9, 5);
+    add_edge(&e, 4, 9, 5);
+    add_edge(&e, 5, 9, 5);
+    add_edge(&e, 6, 9, -100);
+    add_edge(&e, 7, 9, 5);
+    add_edge(&e, 8, 9, 5);
+
+    std::vector<int> b;
+    for (int i = 6; i >= 0; i--) {
+      b.push_back(i);
+    }
+    // double start = MPI_Wtime();
+    std::vector<std::vector<int>> a = mure(e, 10, 0);
+    // double end = MPI_Wtime();
+    if (rank == 0) {
+      // std::cout << "TIME: " << end - start << std::endl;
+      ASSERT_EQ(b, a[9]);
+    }
+  }
+}
+
+TEST(Parallel_Operations_MPI, Try_another_start) {
+  int rank, size;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (size != 3) {
+    std::vector<edge> e;
+    for (int i = 0; i < 9; i++) {
+      add_edge(&e, i, i + 1, i + 1);
+    }
+
+    add_edge(&e, 0, 9, 10);
+    add_edge(&e, 1, 9, 5);
+    add_edge(&e, 2, 9, 5);
+    add_edge(&e, 3, 9, 5);
+    add_edge(&e, 4, 9, 5);
+    add_edge(&e, 5, 9, 5);
+    add_edge(&e, 6, 9, -100);
+    add_edge(&e, 7, 9, 5);
+    add_edge(&e, 8, 9, 5);
+
+    std::vector<int> b;
+    for (int i = 6; i >= 3; i--) {
+      b.push_back(i);
+    }
+    std::vector<std::vector<int>> a = mure(e, 10, 3);
+    if (rank == 0) {
+      ASSERT_EQ(b, a[9]);
+    }
+  }
+}
+
+TEST(Parallel_Operations_MPI, Try_one_more_graph) {
+  int rank, size;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (size != 3) {
+    std::vector<edge> e;
+    // if (rank == 0) {
+    for (int i = 0; i < 7; i++) {
+      add_edge(&e, i, i + 1, i + 1);
+    }
+
+    add_edge(&e, 0, 7, 6);
+    add_edge(&e, 6, 7, 6);
+    add_edge(&e, 7, 3, 5);
+    std::vector<std::vector<int>> a = mure(e, 8, 0);
+
+    std::vector<int> b;
+    for (int i = 3; i >= 0; i--) {
+      b.push_back(i);
+    }
+    if (rank == 0) {
+      ASSERT_EQ(b, a[4]);
+    }
+  }
+}
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
