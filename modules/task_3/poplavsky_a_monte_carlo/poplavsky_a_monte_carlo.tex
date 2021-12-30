@@ -1,0 +1,533 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{blue}\ttfamily,
+		commentstyle=\color{blue}\ttfamily,
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large «Вычисление многомерных интегралов методом Монте-Карло.»}
+\vspace{4em}
+\end{center}
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-1 \\ Поплавский А.И.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}
+{Введение}
+Методами Монте-Карло называют численные методы решения математических задач при помощи моделирования случайных величин. Однако, решать методами Монте-Карло можно любые математические задачи, а не только задачи вероятностного происхождения, связанные со случайными величинами.
+\par Важнейшим приемом построения методов Монте-Карло явлеяется сведение задачи к расчету математических ожиданий. Так как математические ожидания чаще всего представляют собой обычные интегралы, то
+центральное положение в теории метода Монте-Карло занимают методы вычисления интегралов.
+\par Преимущества недетерминированных методов особенно ярко проявляются при решении задач большой размерности, когда применение традиционных детерминированных методов затруднено или совсем невозможно.
+\par Границы между простым и сложным, возможным и невозможным существуют всегда, но с развитием вычислительной техники сдвигаются вдаль. До появления электронных вычислительных машин (ЭВМ) методы МонтеКарло не могли стать универсальными численными методами, ибо моделирование случайных величин вручную — весьма трудоемкий процесс. Развитию методов Монте-Карло способствовало бурное развитие ЭВМ. Алгоритмы Монте-Карло сравнительно легко программируются и позволяют производить расчеты во многих задачах, недоступных для классических численных методов. Так как совершенствование ЭВМ продолжается, есть все основания ожидать дальнейшего развития методов Монте-Карло и дальнейшего расширения области их применения.
+\par В данной лабораторной работе будет рассмотрено вычисление многомерных интегралов методом Монте-Карло.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Цель данной работы – изучение особенностей применения метода Монте-Карло в решении задач численного интегрирования.
+\par Требуется реализовать последовательный и параллельный алгоритмы. Реализацию параллельного алгоритма провести средствами MPI. Кроме того, необходимо провести сравнения времени работы последовательного и параллельного алгоритмов.
+\par Для реализации параллельной версии необходимо использовать средства MPI. Для проверки корректности работы алгоритмов требуется использовать Google C++ Testing Framework.
+\newpage
+
+% Описание алгоритма и метод решения
+\section*{Описание алгоритма и метод решения}
+\addcontentsline{toc}{section}{Описание алгоритма и метод решения}
+Интеграл оценивается как произведение площади (объема) области и среднего значения функции, которое опять вычисляется по выборке на множестве случайных точек.
+\par Введем некоторые величины, которые позволят нам формализовать алгоритм
+численного интегрирования. Пусть дан двумерный интеграл вида:
+$$\iiint\ \Omega \ f(x,y) \,dx\,dy, $$
+\par Таким образом, граница области $\delta \Omega$ задана неявной функцией (кривой) g(x,y)=0. Такое
+описание областей распространено в последние десятилетия, при этом g называется функцией уровня, а граница g=0 — нулевым контуром функции уровня. Для простых областей можно легко построить функцию g вручную, но в более сложных промышленных приложениях следует обратиться к математическим моделям построения g.
+\par Пусть A($\Omega$) — площадь области $\Omega$. Мы можем численно найти интеграл по следующему алгоритму:
+\begin{itemize}
+\item Помещаем область $\Omega$ внутрь прямоугольника R;
+\item Генерируем большое число случайных точек на R;
+\item Вычисляем долю q точек, которые попали в область $\Omega$;
+\item Приближаем A($\Omega$)/A(R) числом q, т.е., полагаем A($\Omega$)=qA(R);
+\item Вычисляем среднее значение f¯ функции f на области $\Omega$;
+\item Вычисляем приближенное значение интеграла как A($\Omega$)f¯.
+\end{itemize}
+\par Отметим, что площадь A(R) прямоугольника R легко вычислить, при том что площадь
+A($\Omega$) нам не известна. Однако, если предположить, что доля площади A(R) занимаемой
+областью $\Omega$ такая же как доля случайных точек, попавших внутрь $\Omega$, можно получить
+простое приближение для A($\Omega$).
+
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+В параллельной реализации при генерации точек каждым процессом мы получаем
+одни и те же числа в каждом процессе – неправильное использование генератора в
+параллельных вычислениях. Требуется, чтобы процессы работали с одной
+последовательностью случайных чисел, «выбирая» из нее нужные для обработки. 
+\par Нулевой процесс генерирует случайные точке в заданного прямоугольника и
+распределяет их по всем процессам. Каждый процесс вычисляет долю точек попавших в
+область интегрирования и среднее значение функции в этих точках, а затем отправляет эти
+данные в нулевой процесс. В нулевом процесс вычисляем площадь фигуры A($\Omega$) и среднее
+знамение функции f¯, приближенное значение интеграла находим как A($\Omega$)f¯ .
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Наша программа состоит из нескольких основных файлов:
+
+\begin{itemize}
+\item Заголовочного файла (там содержатся объявления функций последовательного и параллельного метода)
+\begin{lstlisting}
+double getParallelIntegral(vector<array<double, 2>> a_b, int points,
+                           function<double(vector<double>)> f);
+                           
+double getSequentialIntegral(vector<array<double, 2>> a_b, int number_of_points,
+                             function<double(vector<double>)> f);
+\end{lstlisting}
+\item Файла с реализацией вышеперечисленных функций
+\item Файла, в котором содержатся тесты для проверки корректности программы
+\end{itemize}
+
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности в программе представлен набор тестов, разработанных с помощью использования Google C++ Testing Framework.
+\par Набор представляет из себя тесты, которые проверяют:
+\begin{itemize}
+\item Корректность входных данных;
+\item Корректность вычислений;
+\item Эффективность по времени работы последовательной и параллельной функции.
+\end{itemize}
+\par Успешное прохождение всех тестов доказывает корректность работы всей программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки временной эффективности параллельной реализации вычисления многомерных интегралов методом Монте-Карло проводились на оборудовании со следующей конфигурацией:
+
+\begin{itemize}
+\item Процессор: Amd Ryzen 5 2600 CPU @ 3.40 GHz, 3900 МГц, ядер 6;
+\item Оперативная память: 16 ГБ (DDR4), 2666 MHz;
+\item ОС: Microsoft Windows 10 
+\end{itemize}
+
+\par Результаты вычислений представлены в таблице
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{| r | r | r | r |}
+\hline
+Кол-во процессов & Послед.метод, с & Паралл.метод, с & Ускорение  \\[5pt]
+\hline
+1        & 0.202585        & 0.180878     & 1.12       \\
+2        & 0.185644        & 0.10374     & 1.78951       \\
+4        & 0.184223        & 0.0789129     & 2.33451       \\
+8        & 0.185594        & 0.061289     & 3.0282       \\
+16       & 0.1911        &  0.0654934     &  2.91786	  \\
+\hline
+\end{tabular}
+\end{table}
+
+\par Из полученных данных мы можем сделать вывод, что разность во времени работы при последовательном и параллельном вычислениях различна. По полученным резльутат можно сказать, что параллельное выполнение программы выигрывает во времени у последовательного во всех случаях.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе работы реализованы последовательная и параллельная версия алгоритма Монте-Карло для вычисления многомерных интегралов.
+\par Для подтверждения корректности работы программы разработан и доведен до успешного
+выполнения набор тестов с использованием библиотеки модульного тестирования Google C++
+Testing Framework.
+\par По данным экспериментов удалось сравнить время работы параллельного и последовательного
+алгоритмов. Выявлено, что параллельный алгоритм вычисления многомерных интегралов методом Монте-Карло показывает высокую эффективность в сравнении с последовательным.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Gergel}
+Соболь И.М. Численные методы Монте-Карло. – М.:Наука, 1973. – 312c.
+\bibitem{Sobol}
+Корнеев В. Д. Параллельное программирование в MPI //Новосибирск: Изд-во СО РАН. – 2000.
+\bibitem{Korneev}
+Гергель В. П. Теория и практика параллельных вычислений. – 2007.
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\begin{lstlisting}
+// monte_carlo.h
+
+// Copyright 2021 Poplavskiy Anton
+#ifndef MODULES_TASK_3_POPLAVSKIY_A_MONTE_CARLO_MONTE_CARLO_H_
+#define MODULES_TASK_3_POPLAVSKIY_A_MONTE_CARLO_MONTE_CARLO_H_
+#include <mpi.h>
+
+#include <array>
+#include <ctime>
+#include <functional>
+#include <random>
+#include <vector>
+
+using std::array;
+using std::function;
+using std::mt19937;
+using std::uniform_real_distribution;
+using std::vector;
+
+double getParallelIntegral(vector<array<double, 2>> a_b, int points,
+                           function<double(vector<double>)> f);
+double getSequentialIntegral(vector<array<double, 2>> a_b, int number_of_points,
+                             function<double(vector<double>)> f);
+
+#endif  // MODULES_TASK_3_POPLAVSKIY_A_MONTE_CARLO_MONTE_CARLO_H_
+
+\end{lstlisting}
+\begin{lstlisting}
+// monte_carlo.cpp
+
+// Copyright 2021 Poplavskiy Anton
+#include "../../../modules/task_3/poplavskiy_a_monte_carlo/monte_carlo.h"
+
+double getSequentialIntegral(vector<array<double, 2>> a_b, int points,
+                             function<double(vector<double>)> f) {
+  int dimension = static_cast<int>(a_b.size());
+  mt19937 gen(time(0));
+  vector<uniform_real_distribution<double>> uniform(dimension);
+
+  double result = 0.0;
+
+  for (int i = 0; i < dimension; i++)
+    uniform[i] = uniform_real_distribution<double>(a_b[i][0], a_b[i][1]);
+
+  vector<double> node(dimension);
+   
+  for (int i = 0; i < points; i++) {
+    for (int j = 0; j < dimension; j++) node[j] = uniform[j](gen);
+    result += f(node);
+  }
+  for (int i = 0; i < dimension; i++) {
+    result *= (a_b[i][0] - a_b[i][1]);
+  }
+  result /= points;
+  return result;
+}
+
+double getParallelIntegral(vector<array<double, 2>> a_b, int points_num,
+                           function<double(vector<double>)> f) {
+  int rank;
+  int size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int integral_dim = static_cast<int>(a_b.size());
+  vector<double> points(points_num * integral_dim);
+
+  if (rank == 0) {
+    mt19937 gen(time(0));
+    vector<uniform_real_distribution<double>> uniform(integral_dim);
+    for (int i = 0; i < integral_dim; i++) {
+      uniform[i] = uniform_real_distribution<double>(a_b[i][0], a_b[i][1]);
+    }
+    for (int i = 0; i < points_num; i++) {
+      for (int j = 0; j < integral_dim; j++) {
+        points[(i * integral_dim) + j] = uniform[j](gen);
+      }
+    }
+  }
+
+  double local_sum = 0.0;
+  double global_sum = 0.0;
+  int delta = points_num / size;
+  int rem = points_num % size;
+  vector<double> local_points(delta * integral_dim);
+
+  MPI_Scatter(points.data(), delta * integral_dim, MPI_DOUBLE,
+              local_points.data(), delta * integral_dim, MPI_DOUBLE, 0,
+              MPI_COMM_WORLD);
+
+  vector<double> func_params(integral_dim);
+
+  for (int i = 0; i < delta; i++) {
+    for (int j = 0; j < integral_dim; j++) {
+      func_params[j] = local_points[(i * integral_dim) + j];
+    }
+    local_sum += f(func_params);
+  }
+
+  if (rank == 0) {
+    for (int i = 0; i < rem; i++) {
+      for (int j = 0; j < integral_dim; j++) {
+        func_params[j] = points[(delta * size + i) * integral_dim + j];
+      }
+      local_sum += f(func_params);
+    }
+  }
+
+  MPI_Reduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM, 0,
+             MPI_COMM_WORLD);
+
+  if (rank == 0) {
+    for (int i = 0; i < integral_dim; i++) {
+      global_sum *= (a_b[i][0] - a_b[i][1]);
+    }
+    global_sum /= points_num;
+  }
+
+  return global_sum;
+}
+
+
+// Copyright 2021 Poplavskiy Anton
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <gtest-mpi-listener.hpp>
+
+#include "./monte_carlo.h"
+
+double f1(vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  return 7 * x * x + 6 * y * y * y;
+}
+
+double f2(vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  return x + sin(y * y * y);
+}
+
+double f3(vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  return x * x - cos(y) + y * y;
+}
+
+double f4(vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  double z = vec[2];
+  return tan(x * x * x) - y * y + sin(y)-z;
+}
+
+double f5(vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  double z = vec[2];
+  return 5 * x * x * x - 2 * y + sin(z);
+}
+
+TEST(Monte_Carlo_MPI, Test_Function_1) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<array<double, 2>> a_b = {{0.0, 1.0}, {1.0, 2.0}};
+  int points = 100000;
+
+  double start = MPI_Wtime();
+  double parallel_result = getParallelIntegral(a_b, points, f1);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    double start = MPI_Wtime();
+    double reference_result = getSequentialIntegral(a_b, points, f1);
+    double end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "S: " << stime << " P: " << ptime
+              << " Speedup: " << stime / ptime << std::endl;
+    ASSERT_NEAR(reference_result, parallel_result, 10);
+  }
+}
+
+TEST(Monte_Carlo_MPI, Test_Function_2) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<array<double, 2>> a_b = {{0.0, 4.0}, {1.5, 2.5}};
+  int points = 100000;
+
+  double start = MPI_Wtime();
+  double parallel_result = getParallelIntegral(a_b, points, f2);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    double start = MPI_Wtime();
+    double reference_result = getSequentialIntegral(a_b, points, f2);
+    double end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "S: " << stime << " P: " << ptime
+              << " Speedup: " << stime / ptime << std::endl;
+    ASSERT_NEAR(reference_result, parallel_result, 10);
+  }
+}
+
+TEST(Monte_Carlo_MPI, Test_Function_3) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<array<double, 2>> a_b = {{0.0, 4.0}, {1.5, 2.5}, {1.0, 5.0}};
+  int points = 100000;
+
+  double start = MPI_Wtime();
+  double parallel_result = getParallelIntegral(a_b, points, f3);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    double start = MPI_Wtime();
+    double reference_result = getSequentialIntegral(a_b, points, f3);
+    double end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "S: " << stime << " P: " << ptime
+              << " Speedup: " << stime / ptime << std::endl;
+    ASSERT_NEAR(reference_result, parallel_result, 10);
+  }
+}
+
+TEST(Monte_Carlo_MPI, Test_Function_4) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<array<double, 2>> a_b = {{0.0, 4.0}, {1.5, 2.5}, {1.0, 5.0}};
+  int points = 100000;
+
+  double start = MPI_Wtime();
+  double parallel_result = getParallelIntegral(a_b, points, f4);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    double start = MPI_Wtime();
+    double reference_result = getSequentialIntegral(a_b, points, f4);
+    double end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "S: " << stime << " P: " << ptime
+              << " Speedup: " << stime / ptime << std::endl;
+    ASSERT_NEAR(reference_result, parallel_result, 10);
+  }
+}
+
+TEST(Monte_Carlo_MPI, Test_Function_5) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  std::vector<array<double, 2>> a_b = {{0.0, 4.0}, {1.5, 2.5}, {1.0, 5.0}};
+  int points = 100000;
+
+  double start = MPI_Wtime();
+  double parallel_result = getParallelIntegral(a_b, points, f5);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    double start = MPI_Wtime();
+    double reference_result = getSequentialIntegral(a_b, points, f5);
+    double end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "S: " << stime << " P: " << ptime
+              << " Speedup: " << stime / ptime << std::endl;
+    ASSERT_NEAR(reference_result, parallel_result, 10);
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
