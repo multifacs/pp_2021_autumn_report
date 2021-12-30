@@ -1,0 +1,519 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Построение выпуклой оболочки – проход Джарвиса.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студент группы 381908-3 \\ Еланский А. А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Алгоритм обхода Джарвиса определяет последовательность элементов множества, образующих выпуклую оболочку для этого множества. Метод можно представить как обтягивание верёвкой множества вбитых в доску гвоздей. Алгоритм работает за время O(nh), где n — общее число точек на плоскости, h — число точек в выпуклой оболочке.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данном лабораторной работе требуется реализовать последовательный и параллельный алгоритмы вычисления Построение выпуклой оболочки – проход Джарвиса. Изпользуя автоматические тесты Google Test, провести вычислительный эксперименты для сравнения времени работы алгоритмов, 
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Пусть на плоскости задано конечное множество точек $A=\{\,a_{1},a_{2},\ldots ,a_{n}\,\}$. Оболочкой этого множества называется любая замкнутая линия H без самопересечений, такая, что все точки из множества A лежат внутри этой кривой. Если кривая H является выпуклой, то соответствующая оболочка также называется выпуклой. Минимальной выпуклой оболочкой (МВО) называется выпуклая оболочка минимальной длины (минимального периметра).
+
+\par Главной особенностью МВО множества точек A является то, что эта оболочка представляет собой выпуклый многоугольник, вершинами которого являются некоторые точки из A. Поэтому задача поиска МВО в конечном итоге сводится к отбору и упорядочиванию нужных точек из A. Упорядочивание является необходимым по той причине, что выходом алгоритма должен быть многоугольник, т.е. последовательность вершин. 
+
+\par Алгоитм Джарвиса состоит из 2 шагов. В первом шаге ищется любая точка в A, гарантированно входящая в МВО. Она будет входить в МВО, значит, берётся точка с наименьшей x-координатой (самая левая точка в A). Эту точку (стартовая) перемещаем в начало списка, вся дальнейшая работа будет производиться с оставшимися точками. На втором шаге алгоритма строится МВО. По такому принципу: делаем стартовую вершину текущей, ищем самую правую точку в A относительно текущей вершины, делаем ее текущей и повторяем. Процесс завершается, когда текущей вновь окажется стартовая вершина. 
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Количество точек, которые обработывает каждый из процессов, вычисляется по формуле $N_{\text{local}} = \frac{\text{общее количество точек}}{\text{количество процессов}}$. Если при делении образуется остаток, то эти оставшиеся точки отдаются на обработку последнему процессу. Каждый процесс вычисляет значение МВО для своих точек. Потом значения МВО каждого процесса скадываются в один вектор, в котором мы находим МВО. В итоге, мы получаем МВО для всех точек.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла convex\_hull\_construction\_Jarvis.h, в котором находятся объвления функций, и двух исполняющих файлов convex\_hull\_construction\_Jarvis.cpp, в котором находятся реализация функций, и main.cpp, в котором находятся тесты для проверки значений. 
+\par В заголовочном файле объявляются функции для генерации точек, определение местоположения точки, последовательного и параллельного вычисления МВО.
+
+\par Функция для генерации точек:
+\begin{lstlisting}
+std::vector<std::pair<int, int>> gen_dots(int vectorSize);
+\end{lstlisting}
+Во входной параметр принимается количество точек, которые мы хотим задать. А возвращает функция вектор точек типа пара, с целочисленными координатами точек
+
+\par Функция для определение местоположения точки:
+\begin{lstlisting}
+int rotation(const std::pair<int, int>& firstVertex, const std::pair<int, int>& secondVertex,
+    const std::pair<int, int>& thirdVertex);
+\end{lstlisting}
+Входные параметры данной функции являются точки $\{\,a_{предпоследняя точка в векторе точек},a_{крайняя точка},a_{n}\,\}$. На выходе мы получаем число, с помощью которого определяем местоположение следующей точки относительно текущей.
+
+\par Функция для последовательного вычисления МВО:
+\begin{lstlisting}
+std::vector<std::pair<int, int>> jarvis_seq(const std::vector<std::pair<int, int>>& vectorOfVertex);
+\end{lstlisting}
+Во входной параметр принимается вектор точек, из которых мы хотим найти МВО. На выходе мы получаем вектор точек, которые образуют МВО.
+
+\par Функция для параллельного вычисления МВО:
+\begin{lstlisting}
+std::vector<std::pair<int, int>> jarvis_par(const std::vector<std::pair<int, int>>& vectorOfVertex, int vectorSize);
+\end{lstlisting}
+Во входной параметр принимается вектор точек, из которых мы хотим найти МВО и количество точек в векторе. На выходе мы получаем вектор точек, которые образуют МВО.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью фрэймфорка Google Test, были разработаны 7 тестов. В каждом из тестов вычисляются МВО через последовательный и  алгоритмы. Из случайно сгенерированных точек оба алгоритма находится точки МВО и сравниваются между собой. 
+
+\par Алгоритмы тестируются по следующим количеству точек: 31, 32, 100, 123, 222, 256 и 5000. Успешное прохождение тестов по этим значениям подтверждает корректность работы алгоритмов.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 7 2700x, 3.7 ГГц, количество ядер: 8;
+\item Оперативная память: 16 ГБ (DDR4);
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Эксперименты проводились на различном числе процессов и на количестве точек 5000.
+
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результат вычислительного эксперимента}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах)  \\[5pt]
+\hline
+2        & 0.0093039        & 0.0175132            \\
+3        & 0.006356         & 0.0195783            \\
+4        & 0.0044646        & 0.0153115            \\
+5        & 0.0035047        & 0.0155628            \\
+6        & 0.0033614        & 0.0152676            \\
+7        & 0.002986         & 0.0231004            \\
+8        & 0.0033797        & 0.0171767            \\
+
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+Из данных, полученных в результате экспериментов (см. Таблицу 1), можно сделать вывод, что параллельный алгоритм работает быстрее, чем последовательный. Можно заметить, что с увеличением числа процессов сокращается время работы параллельного алгоритма. Однако, начиная с некоторого количества процессов, время выполнения алгоритма снижается не очень сильно, по сравнению с предыдущем количеством процессов. Это связано с тем, что, чем больше процессом, тем больше времени уходит на распределение данных. 
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Подводя итоги, можно сказать, что в данной лабораторной работе были разработаны последовательный и параллельный алгоритмы Построение выпуклой оболочки алгоритмом Джарвиса. Проведенные тесты показали корректность реализованной программы, а проведенные эксперименты доказали эффективность параллельного алгоритма по сравнению с последовательным.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Гергель В.П.,Сысоев А.В. Кафедра МОСТ: Презентация «Лекция 02 Коллективные и парные взаимодействия»
+\item Habr - Электронный ресурс. URL: https://habr.com/ru/post/144921/
+\item Википедия - Электронный ресурс. URL: https://ru.wikipedia.org/wiki/%D0%90%D0%BB%D0%B3%D0%BE%D1%80%D0%B8%D1%82%D0%BC_%D0%94%D0%B6%D0%B0%D1%80%D0%B2%D0%B8%D1%81%D0%B0
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+convex\_hull\_construction\_Jarvis.h
+\begin{lstlisting}
+/// Copyright 2021 Elanskiy Akexandr
+#include <cstdlib>
+#include <ctime>
+#include <gtest-mpi-listener.hpp>
+#include <gtest/gtest.h>
+#include <mpi.h>
+#include <numeric>
+#include <random>
+#include <utility>
+#include <vector>
+
+#ifndef MODULES_TASK_3_ELANSKIY_A_CONVEX_HULL_CONSTRUCTION_JARVIS_CONVEX_HULL_CONSTRUCTION_JARVIS_H_
+#define MODULES_TASK_3_ELANSKIY_A_CONVEX_HULL_CONSTRUCTION_JARVIS_CONVEX_HULL_CONSTRUCTION_JARVIS_H_
+
+std::vector<std::pair<int, int>> gen_dots(int vectorSize);
+int rotation(const std::pair<int, int>& firstVertex, const std::pair<int, int>& secondVertex,
+    const std::pair<int, int>& thirdVertex);
+std::vector<std::pair<int, int>> jarvis_seq(const std::vector<std::pair<int, int>>& vectorOfVertex);
+std::vector<std::pair<int, int>> jarvis_par(const std::vector<std::pair<int, int>>& vectorOfVertex, int vectorSize);
+
+#endif // MODULES_TASK_3_ELANSKIY_A_CONVEX_HULL_CONSTRUCTION_JARVIS_CONVEX_HULL_CONSTRUCTION_JARVIS_H_
+
+
+\end{lstlisting}
+convex\_hull\_construction\_Jarvis.cpp
+\begin{lstlisting}
+// Copyright 2021 Elanskiy Akexandr
+#include "../../../modules/task_3/elanskiy_a_convex_hull_construction_Jarvis/convex_hull_construction_Jarvis.h"
+
+std::vector<std::pair<int, int>> gen_dots(int vectorSize) {
+    std::mt19937 rand_r(time(0));
+    std::vector<std::pair<int, int>> vec(vectorSize);
+    for (int i = 0; i < vectorSize; i++) {
+        vec[i].first = rand_r() % 10000;
+        vec[i].second = rand_r() % 10000;
+    }
+    return vec;
+}
+
+int rotation(const std::pair<int, int>& dot1, const std::pair<int, int>& dot2, const std::pair<int, int>& dot3) {
+    return (dot2.first - dot1.first) * (dot3.second - dot2.second)
+        - (dot2.second - dot1.second) * (dot3.first - dot2.first);
+}
+
+std::vector<std::pair<int, int>> jarvis_seq(const std::vector<std::pair<int, int>>& dots) {
+    std::vector<int> _indxs(dots.size());
+    int vec_size = dots.size();
+    int tmp;
+    for (int i = 0; i < vec_size; i++) {
+        _indxs[i] = i;
+    }
+    for (int i = 1; i < vec_size; ++i) {
+        if (dots[_indxs[i]].first < dots[_indxs[0]].first) {
+            tmp = _indxs[i];
+            _indxs[i] = _indxs[0];
+            _indxs[0] = tmp;
+        }
+    }
+
+    std::vector<int> res_indx = { _indxs[0] };
+    _indxs.erase(_indxs.begin());
+    _indxs.push_back(res_indx[0]);
+
+    int _indxsSize;
+    while (true) {
+        int right = 0;
+        _indxsSize = _indxs.size();
+        for (int i = 1; i < _indxsSize; i++) {
+            if (rotation(dots[res_indx[res_indx.size() - 1]],
+                    dots[_indxs[right]],
+                    dots[_indxs[i]])
+                < 0) {
+                right = i;
+            }
+        }
+        if (_indxs[right] == res_indx[0]) {
+            break;
+        } else {
+            res_indx.push_back(_indxs[right]);
+            _indxs.erase(_indxs.begin() + right);
+        }
+    }
+
+    std::vector<std::pair<int, int>> res(res_indx.size());
+    int res_indxSize = res_indx.size();
+    for (int i = 0; i < res_indxSize; i++) {
+        res[i] = dots[res_indx[i]];
+    }
+
+    return res;
+}
+
+void Build_mpi_type(int* index_i, int* index_j, MPI_Datatype* mytype) {
+    int array_of_blocklengths[2] = { 1, 1 };
+    MPI_Datatype array_of_types[2] = { MPI_INT, MPI_INT };
+    MPI_Aint i_addr, j_addr;
+    MPI_Aint array_of_displacements[2] = { 0 };
+    MPI_Get_address(index_i, &i_addr);
+    MPI_Get_address(index_j, &j_addr);
+    array_of_displacements[1] = j_addr - i_addr;
+    MPI_Type_create_struct(2, array_of_blocklengths, array_of_displacements, array_of_types, mytype);
+    MPI_Type_commit(mytype);
+}
+
+std::vector<std::pair<int, int>> jarvis_par(const std::vector<std::pair<int, int>>& dots, int size) {
+    int num_of_proc;
+    int proc_num;
+    MPI_Comm_size(MPI_COMM_WORLD, &num_of_proc);
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_num);
+
+    std::vector<int> num_of_dots(num_of_proc);
+    std::vector<int> displs(num_of_proc);
+    std::vector<int> displs1(num_of_proc);
+    std::vector<int> size_of_parts(num_of_proc);
+    int sum = 0;
+
+    int* index_i = NULL;
+    int* index_j = NULL;
+    std::pair<int, int> bla;
+    index_i = &(bla.first);
+    index_j = &(bla.second);
+    MPI_Datatype mytype;
+    Build_mpi_type(index_i, index_j, &mytype);
+
+    for (int i = 0; i < num_of_proc; i++) {
+        num_of_dots[i] = size / num_of_proc;
+        displs[i] = sum;
+        sum += num_of_dots[i];
+    }
+    if (size % num_of_proc > 0) {
+        num_of_dots[num_of_proc - 1] += size % num_of_proc;
+    }
+    std::vector<std::pair<int, int>> vec_part(num_of_dots[proc_num]);
+    std::vector<std::pair<int, int>> part_res;
+    std::vector<std::pair<int, int>> res;
+    int res_size = 0;
+
+    MPI_Scatterv(dots.data(), num_of_dots.data(), displs.data(), mytype, vec_part.data(),
+        num_of_dots[proc_num], mytype, 0, MPI_COMM_WORLD);
+
+    part_res = jarvis_seq(vec_part);
+
+    int part_size = part_res.size();
+    MPI_Gather(&part_size, 1, MPI_INT, size_of_parts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(size_of_parts.data(), size_of_parts.size(), MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&size_of_parts[proc_num], &res_size, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&res_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    sum = 0;
+    for (int i = 0; i < num_of_proc; i++) {
+        displs1[i] = sum;
+        sum += size_of_parts[i];
+    }
+    std::vector<std::pair<int, int>> tmp_res(res_size);
+    MPI_Gatherv(part_res.data(), size_of_parts[proc_num], mytype, tmp_res.data(),
+        size_of_parts.data(), displs1.data(), mytype, 0, MPI_COMM_WORLD);
+    res = jarvis_seq(tmp_res);
+    return res;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Elanskiy Akexandr
+#include "./convex_hull_construction_Jarvis.h"
+
+TEST(Parallel_Operations_MPI, Test_Size_31) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 31;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    std::vector<std::pair<int, int>> seq_res;
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        seq_res = jarvis_seq(dots);
+        ASSERT_EQ(par_res, seq_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_32) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 31;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    std::vector<std::pair<int, int>> seq_res;
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        seq_res = jarvis_seq(dots);
+        ASSERT_EQ(par_res, seq_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_100) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 100;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    std::vector<std::pair<int, int>> seq_res;
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        seq_res = jarvis_seq(dots);
+        ASSERT_EQ(par_res, seq_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_123) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 123;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    std::vector<std::pair<int, int>> seq_res;
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        seq_res = jarvis_seq(dots);
+        ASSERT_EQ(par_res, seq_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_222) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 222;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    std::vector<std::pair<int, int>> seq_res;
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        seq_res = jarvis_seq(dots);
+        ASSERT_EQ(par_res, seq_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_256) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 256;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    std::vector<std::pair<int, int>> seq_res;
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        seq_res = jarvis_seq(dots);
+        ASSERT_EQ(par_res, seq_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, Test_Size_5000) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<std::pair<int, int>> dots;
+    int size = 10000;
+    dots = gen_dots(size);
+    std::vector<std::pair<int, int>> par_res;
+    double start_of_par;
+    double end_of_par;
+    double start_of_seq;
+    double end_of_seq;
+    if (rank == 0) {
+        start_of_par = MPI_Wtime();
+    }
+    par_res = jarvis_par(dots, size);
+    if (rank == 0) {
+        end_of_par = MPI_Wtime();
+        start_of_seq = MPI_Wtime();
+        std::vector<std::pair<int, int>> seq_res = jarvis_seq(dots);
+        end_of_seq = MPI_Wtime();
+        std::cout << std::endl;
+        std::cout << end_of_par - start_of_par << " par" << std::endl;
+        std::cout << end_of_seq - start_of_seq << " seq" << std::endl;
+        ASSERT_EQ(seq_res, seq_res);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners = ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
