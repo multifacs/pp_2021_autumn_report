@@ -1,0 +1,731 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{wrapfig}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+basicstyle=\footnotesize,
+keywordstyle=\color{blue}\ttfamily,
+stringstyle=\color{red}\ttfamily,
+commentstyle=\color{green}\ttfamily,
+morecomment=[l][\color{red}]{\#},
+tabsize=4,
+breaklines=true,
+breakatwhitespace=true,
+title=\lstname,
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large« Многошаговая схема решения двумерных задач глобальной оптимизации. Распараллеливание по характеристикам.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Яшина Д. С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Сегодня существует множество методов глобальной оптимизации. Проводятся конференции и публикуются тематические выпуски известных журналов, посвященные их разновидностям и возможностям применения для различных задач. Большинство работ по исследованию и использованию таких методов посвящено изучению особенностей их применения в конкретной области и, как правило, носит частный характер.
+\par Дадим определение глобальной оптимизации. Это раздел прикладной математики и вычислительного анализа, который занимается проблемами поиска глобальных экстремумов функций. В большинстве случаев решается задача минимизации.
+\par Задачи многоэкстремальной оптимизации имеют существенно более высокую трудоемкость решения по сравнению с другими типами оптимизационных задач, т.к. глобальный оптимум является интегральной характеристикой решаемой задачи и требует исследования всей области поиска. Как результат, поиск глобального оптимума сводится к построению некоторого покрытия (сетки) в области параметров, и выборе наилучшего значения функции на данной сетке. Вычислительные затраты на решение задачи растут экспоненциально с ростом размерности. Для снижения сложности алгоритмов глобальной оптимизации, формирующих неравномерное покрытие области поиска, широко используются различные схемы редукции размерности, которые позволяют свести решение многомерных оптимизационных задач к семейству задач одномерной оптимизации.
+\par В данной лабораторной работе необходимо реализовать параллельную многошаговую схему решения двумерных задач глобальной оптимизации с распараллеливанием по характеристикам и сравнение эффективности параллельной и последовательной схемы.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данном лабораторной работе требуется реализовать последовательный и параллельный алгоритмы многошаговой схемы решения двумерных задач глобальной оптимизации с распараллеливанием по характеристикам, провести вычислительный эксперименты для сравнения времени работы алгоритмов, используя при этом фрэймворк для разработки автоматических тестов Google Test, сделать выводы об эффективности реализованных алгоритмов.
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Рассмотрим алгоритм решения задачи глобальной оптимизации.
+\par Для начала необходимо задать функцию, область поиска, точность
+поиска $\varepsilon$ и критерий надежности $r$.
+\par 1.Упорядочиваем поисковую информацию в порядке возрастания значений точек
+ранее выполненных итераций: $x_1 \leq x_2 \leq ...  \leq x_k $
+\par 2.Вычисляем характеристику $R(i)$ для каждого интервала $(x_{i-1},x_i)$, где $1 \leq i \leq k $ , после чего находим 
+среди них максимальную R(t). В интервале с максимальной характеристикой вычисляем следующую точку $x_{k+1}$ в соответствии с условием:
+\par $x_{k+1} = s(t) \in (x_t-1,x_t)$
+\par 3. Текущая оценка данного решения - наименьшее вычисленное значение минимизируемой функции:
+\par $z_k = min (z_i : 1 \leq i \leq k)$
+\par Стоит заметить, что если минимальное расстояние между двумя соседними точками меньше $\varepsilon$,
+останавливаемся, иначе продолжаем вычисление новых точек в области поиска.
+\par 4.Вычисляем характеристику по формуле:
+\par $R(i) = \mu( x_i - x_{i-1} ) + \frac{(z_i - z_{i-1})^2}{\mu(x_i - x_{i-1})} - 2*(z_i - z_{i-1})$
+\par $\mu$ - текущая оценка константы Липшица
+\par 5.Правило вычисления точек:
+\par $x_{k+1} =  \frac{(x_t + x_{t-1})}{2} - \frac{(z_t - z_{t-1})}{2\mu} $
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par Процесс с рангом 0 делит отрезок [a, b] на необходимое количество интервалов ( в зависимости от количества процессов ), и параллельно вычисляются значения $z_i$ во всех точках $i$, 1 < $i$ < $k$, полученного множества.После чего нулевой процесс вычисляет характеристики $R$, которые потом сортируются в порядке убывания. Далее на основании первых $n-1$ значений $R$ вычисляются точки, в которых все процессы кроме главного должны провести испытания. После чего результаты отправляются в нулевой процесс.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла global\_optimization.h и двух файлов исходного кода global\_optimization.cpp и main.cpp.
+\par Функция которая находит глобальный минимум одномерной функции на отрезке:
+\begin{lstlisting}
+calcOneDim(double a, double b, double x,double (*func)(double x, double y), double eps = 0.1,int max_iterations = 100, double r = 2.0)
+\end{lstlisting}
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+getGlobalOptimizationSequential(double a1, double b1, double a2, double b2,double (*func)(double x, double y), double eps = 0.1,int max_iterations = 100, double eps_one = 0.1,int max_iterations_one = 100, double r = 2.0)
+\end{lstlisting}
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+getGlobalOptimizationParallel(double a1, double b1, double a2, double b2,double (*func)(double x, double y), double eps = 0.1,int max_iterations = 100, double eps_one = 0.1,int max_iterations_one = 100, double r = 2.0)
+\end{lstlisting}
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы мной было разработано 5 тестов. В первом тесте сравнивается время работы последовательного и параллельного алгоритмов и считается эффективность работы каждого. В тестах 2 - 5 результаты параллельного алгоритма сравнивается с заранее посчитанными значениями.
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i5-9400F, количество ядер: 6;
+\item Оперативная память: 16 ГБ;
+\item Операционная система: Windows 10;
+\end{itemize}
+
+\par Функция, с которой проводим испытания: $x^2 + (y - 1)^2$
+
+\par Точность поиска $\varepsilon$  = 0.02 
+
+\par Результаты экспериментов представлены в таблице:
+
+\begin{table}[!h]
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение \\[5pt]
+\hline
+2 & 1.403 & 1.341 & 1.001 \\
+3 & 1.411 & 1.176 & 1.194 \\
+4 & 1.425 & 0.825 & 1.678 \\
+\hline
+\end{tabular}
+\end{table}
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+Таким образом из полученных данных можно сделать вывод, что параллельный алгоритм работает быстрее последовательного алгоритма. Кроме того, с увеличением количества процессов растет ускорение. Стоит заметить, что на двух процессах ускорения почти нет, потому что поиском глобального минимума занимается один вспомогательный процесс, а главный процесс ищет минимум единственный раз при инициализации множества.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы для решения двумерной задачи глобальной оптимизации с распараллеленнием по характеристикам. Проведенные тесты показали корректность реализованной программы, а проведенные эксперименты доказали эффективность параллельного алгоритма по сравнению с последовательным.
+
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item КРАТКОЕ ВВЕДЕНИЕ В ТЕОРИЮ ЛИПШИЦЕВОЙ ГЛОБАЛЬНОЙ ОПТИМИЗАЦИИ. URL:http://www.unn.ru/books/met\_files/LipGlobOpt.pdf.
+\item URL:https://wiki.loginom.ru/articles/overall-optimization.html
+\item Википедия - Электронный ресурс. URL: https://en.wikipedia.org/wiki/Global\_optimization
+\item МЕТОДЫ ГЛОБАЛЬНОЙ ОПТИМИЗАЦИИ НА ОСНОВЕ РАЗЛИЧНЫХ ПОДХОДОВ ОПТИМИЗАЦИИ.URL: https://cyberleninka.ru/article/n/metody-globalnoy-optimizatsii-na-osnove-razlichnyh-podhodov-optimizatsii
+\end{enumerate}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+global\_optimization.h
+\begin{lstlisting}
+// Copyright 2021 Yashina Darya
+#ifndef MODULES_TASK_3_YASHINA_D_GLOBAL_OPTIMIZATION_GLOBAL_OPTIMIZATION_H_
+#define MODULES_TASK_3_YASHINA_D_GLOBAL_OPTIMIZATION_GLOBAL_OPTIMIZATION_H_
+
+#include <cmath>
+
+struct elemOneDim {
+  double x;
+  double y;
+  elemOneDim(double x, double y) : x(x), y(y) {}
+  friend bool operator<(const elemOneDim& l, const elemOneDim& r) {
+    return l.x < r.x;
+  }
+};
+
+struct elemTwoDim {
+  double x;
+  double y;
+  double z;
+  elemTwoDim(double x, double y, double z = 0) : x(x), y(y), z(z) {}
+  friend bool operator<(const elemTwoDim& l, const elemTwoDim& r) {
+    return l.x < r.x;
+  }
+};
+
+struct elemR {
+  double R;
+  double x;
+  double z;
+  double x_prev;
+  double z_prev;
+  elemR(double R, double x, double z, double x_prev, double z_prev)
+      : R(R), x(x), z(z), x_prev(x_prev), z_prev(z_prev) {}
+  friend bool operator<(const elemR& l, const elemR& r) { return l.R > r.R; }
+};
+
+struct threeDimRes {
+  double x;
+  double y;
+  double z;
+};
+
+bool isCorrect(threeDimRes a, threeDimRes b, double eps);
+
+threeDimRes calcOneDim(double a, double b, double x,
+                        double (*func)(double x, double y), double eps = 0.1,
+                        int max_iterations = 100, double r = 2.0);
+
+threeDimRes getGlobalOptimizationParallel(double a1, double b1, double a2, double b2,
+                       double (*func)(double x, double y), double eps = 0.1,
+                       int max_iterations = 100, double eps_one = 0.1,
+                       int max_iterations_one = 100, double r = 2.0);
+
+threeDimRes getGlobalOptimizationSequential(
+    double a1, double b1, double a2, double b2,
+    double (*func)(double x, double y), double eps = 0.1,
+    int max_iterations = 100, double eps_one = 0.1,
+    int max_iterations_one = 100, double r = 2.0);
+
+#endif  // MODULES_TASK_3_YASHINA_D_GLOBAL_OPTIMIZATION_GLOBAL_OPTIMIZATION_H_
+\end{lstlisting}
+global\_optimization.cpp
+\begin{lstlisting}
+// Copyright 2021 Yashina Darya
+#include "../../../modules/task_3/yashina_d_global_optimization/global_optimization.h"
+
+#include <mpi.h>
+
+#include <climits>
+#include <random>
+#include <set>
+
+threeDimRes calcOneDim(double a, double b, double x,
+                       double (*func)(double x, double y), double eps,
+                       int max_iterations, double r) {
+  bool flag = false;
+  std::set<elemOneDim> set;
+  threeDimRes result;
+  result.x = x;
+
+  double M, current_M, m, R, current_R, new_x;
+  double temp = func(x, a);
+
+  set.insert(elemOneDim(a, temp));
+  result.y = a;
+  result.z = temp;
+
+  temp = func(x, b);
+  set.insert(elemOneDim(b, temp));
+
+  if (result.z > temp) {
+    result.y = b;
+    result.z = temp;
+  }
+
+  int iteration = 2;
+  auto max_R_iterator = set.begin();
+  auto max_prev_R_iterator = set.begin();
+  while (!flag && iteration < max_iterations) {
+    M = -1;
+    auto iterator = set.begin();
+    iterator++;
+    auto prev_iterator = set.begin();
+    while (iterator != set.end()) {
+      current_M = std::abs(static_cast<double>(
+          (iterator->y - prev_iterator->y) / (iterator->x - prev_iterator->x)));
+      if (current_M > M) M = current_M;
+      iterator++;
+      prev_iterator++;
+    }
+
+    if (M > 0) {
+      m = r * M;
+    } else {
+      m = 1;
+    }
+
+    iterator = set.begin();
+    iterator++;
+    prev_iterator = set.begin();
+
+    R = INT_MIN;
+
+    while (iterator != set.end()) {
+      current_R = m * (iterator->x - prev_iterator->x) +
+                  (std::pow((iterator->y - prev_iterator->y), 2) /
+                   (m * (iterator->x - prev_iterator->x))) -
+                  2 * (iterator->y - prev_iterator->y);
+      if (current_R > R) {
+        R = current_R;
+        max_R_iterator = iterator;
+        max_prev_R_iterator = prev_iterator;
+      }
+      iterator++;
+      prev_iterator++;
+    }
+
+    iteration++;
+
+    new_x = (0.5) * (max_R_iterator->x + max_prev_R_iterator->x) -
+            ((max_R_iterator->y - max_prev_R_iterator->y) / (2 * m));
+    temp = func(x, new_x);
+    set.insert(elemOneDim(new_x, temp));
+
+    if (result.z > temp) {
+      result.y = new_x;
+      result.z = temp;
+    }
+    if (max_R_iterator->x - max_prev_R_iterator->x <= eps) {
+      flag = true;
+    }
+  }
+  return result;
+}
+
+threeDimRes getGlobalOptimizationParallel(double a1, double b1, double a2,
+                                          double b2,
+                                          double (*func)(double x, double y),
+                                          double eps, int max_iterations,
+                                          double eps_one,
+                                          int max_iterations_one, double r) {
+  int rank, size;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+  if (size < 2) {
+    return getGlobalOptimizationSequential(a1, b1, a2, b2, func);
+  }
+
+  threeDimRes global_result = {0, 0, 0};
+  threeDimRes result;
+
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    std::set<elemTwoDim> set;
+
+    int iteration;
+    if (std::abs(a1 - b1) <= 0.0001 || std::abs(a2 - b2) <= 0.0001) {
+      iteration = size + 1;
+    } else {
+      iteration = size;
+    }
+
+    double delta = (b1 - a1) / (iteration - 1);
+
+    for (int i = 0; i < size - 1; ++i) {
+      double x = a1 + i * delta;
+      MPI_Send(&x, 1, MPI_DOUBLE, i + 1, 1, MPI_COMM_WORLD);
+    }
+    result = calcOneDim(a2, b2, b1, func, eps_one);
+    set.insert(elemTwoDim(result.x, result.y, result.z));
+    global_result = result;
+
+    if (iteration != size) {
+      result = calcOneDim(a2, b2, a1 + delta * size, func, eps_one);
+      set.insert(elemTwoDim(result.x, result.y, result.z));
+      if (result.z < global_result.z) {
+        global_result = result;
+      }
+    }
+
+    for (int i = 0; i < size - 1; ++i) {
+      MPI_Recv(&result, 3, MPI_DOUBLE, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD,
+               MPI_STATUSES_IGNORE);
+      if (result.z < global_result.z) global_result = result;
+      set.insert(elemTwoDim(result.x, result.y, result.z));
+    }
+
+    std::set<elemR> set_R;
+    double M, current_M, m, current_R, new_x;
+
+    bool flag = false;
+    while (!flag && iteration < max_iterations) {
+      set_R.clear();
+      M = -1;
+      auto iterator = set.begin();
+      iterator++;
+      auto prev_iterator = set.begin();
+
+      while (iterator != set.end()) {
+        current_M =
+            std::abs(static_cast<double>((iterator->z - prev_iterator->z) /
+                                         (iterator->x - prev_iterator->x)));
+        if (current_M > M) M = current_M;
+        iterator++;
+        prev_iterator++;
+      }
+
+      if (M > 0) {
+        m = r * M;
+      } else {
+        m = 1;
+      }
+
+      iterator = set.begin();
+      iterator++;
+      prev_iterator = set.begin();
+
+      while (iterator != set.end()) {
+        current_R = m * (iterator->x - prev_iterator->x) +
+                    (std::pow((iterator->z - prev_iterator->z), 2) /
+                     (m * (iterator->x - prev_iterator->x))) -
+                    2 * (iterator->z - prev_iterator->z);
+        set_R.insert(elemR(current_R, iterator->x, iterator->z,
+                           prev_iterator->x, prev_iterator->z));
+        iterator++;
+        prev_iterator++;
+      }
+
+      auto iterator_R = set_R.begin();
+      for (int i = 0; i < size - 1; ++i) {
+        iteration++;
+        new_x = (0.5) * (iterator_R->x + iterator_R->x_prev) -
+                ((iterator_R->z - iterator_R->z_prev) / (2 * m));
+        MPI_Send(&new_x, 1, MPI_DOUBLE, i + 1, 1, MPI_COMM_WORLD);
+        if (iterator_R->x - iterator_R->x_prev <= eps) {
+          flag = true;
+        }
+        iterator_R++;
+      }
+
+      for (int i = 0; i < size - 1; ++i) {
+        MPI_Recv(&result, 3, MPI_DOUBLE, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD,
+                 MPI_STATUSES_IGNORE);
+        if (result.z < global_result.z) global_result = result;
+        set.insert(elemTwoDim(result.x, result.y, result.z));
+      }
+    }
+
+    for (int i = 0; i < size - 1; ++i) {
+      double flag = eps * 0.001;
+      MPI_Send(&flag, 1, MPI_DOUBLE, i + 1, 1, MPI_COMM_WORLD);
+    }
+  } else {
+    bool flag = false;
+    while (!flag) {
+      double x;
+      MPI_Recv(&x, 1, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+      if (x == eps * 0.001) {
+        flag = true;
+      } else {
+        result = calcOneDim(a2, b2, x, func, eps_one, max_iterations_one);
+        MPI_Send(&result, 3, MPI_DOUBLE, 0, 1, MPI_COMM_WORLD);
+      }
+    }
+  }
+  return global_result;
+}
+
+threeDimRes getGlobalOptimizationSequential(double a1, double b1, double a2,
+                                            double b2,
+                                            double (*func)(double x, double y),
+                                            double eps, int max_iterations,
+                                            double eps_one,
+                                            int max_iterations_one, double r) {
+  threeDimRes global_result = {0, 0, 0};
+  threeDimRes result;
+  std::set<elemTwoDim> set;
+
+  result = calcOneDim(a2, b2, a1, func, eps_one, max_iterations_one);
+  set.insert(elemTwoDim(result.x, result.y, result.z));
+  global_result = result;
+  result = calcOneDim(a2, b2, b1, func, eps_one, max_iterations_one);
+  set.insert(elemTwoDim(result.x, result.y, result.z));
+
+  if (result.z < global_result.z) {
+    global_result = result;
+  }
+
+  double M, current_M, m, current_R, new_x;
+  int iteration = 2;
+
+  std::set<elemR> set_R;
+
+  bool flag = false;
+  while (!flag && iteration < max_iterations) {
+    set_R.clear();
+    M = -1;
+
+    auto iterator = set.begin();
+    iterator++;
+    auto prev_iterator = set.begin();
+
+    while (iterator != set.end()) {
+      current_M = std::abs(static_cast<double>(
+          (iterator->z - prev_iterator->z) / (iterator->x - prev_iterator->x)));
+      if (current_M > M) M = current_M;
+      iterator++;
+      prev_iterator++;
+    }
+
+    if (M > 0) {
+      m = r * M;
+    } else {
+      m = 1;
+    }
+
+    iterator = set.begin();
+    iterator++;
+    prev_iterator = set.begin();
+
+    while (iterator != set.end()) {
+      current_R = m * (iterator->x - prev_iterator->x) +
+                  (std::pow((iterator->z - prev_iterator->z), 2) /
+                   (m * (iterator->x - prev_iterator->x))) -
+                  2 * (iterator->z - prev_iterator->z);
+      set_R.insert(elemR(current_R, iterator->x, iterator->z, prev_iterator->x,
+                         prev_iterator->z));
+      iterator++;
+      prev_iterator++;
+    }
+
+    iteration++;
+    auto iterator_R = set_R.begin();
+    new_x = (0.5) * (iterator_R->x + iterator_R->x_prev) -
+            ((iterator_R->z - iterator_R->z_prev) / (2 * m));
+    result = calcOneDim(a2, b2, new_x, func, eps_one, max_iterations_one);
+    set.insert(elemTwoDim(result.x, result.y, result.z));
+
+    if (result.z < global_result.z) {
+      global_result = result;
+    }
+    if (iterator_R->x - iterator_R->x_prev <= eps) {
+      flag = true;
+    }
+  }
+  return global_result;
+}
+
+bool isCorrect(threeDimRes a, threeDimRes b, double eps) {
+  bool flag = false;
+  if (std::abs(static_cast<double>(a.x - b.x)) <= eps) {
+    if (std::abs(static_cast<double>(a.y - b.y)) <= eps) {
+      if (std::abs(static_cast<double>(a.z - b.z)) <= eps) {
+        flag = true;
+      }
+    }
+  }
+  return flag;
+}
+
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Yashina Darya
+#define _USE_MATH_DEFINES
+
+#include <gtest/gtest.h>
+
+#include <gtest-mpi-listener.hpp>
+
+#include "./global_optimization.h"
+
+double func1(double x, double y) { return std::pow(x, 2) + std::pow(y - 1, 2); }
+
+double func2(double x, double y) {
+  return 4 + std::pow(std::pow(std::pow(x, 2) + std::pow(y, 2), 2), 1.0 / 3);
+}
+
+double func3(double x, double y) {
+  return std::pow(x, 3) + 8 * std::pow(y, 3) - 6 * x * y + 5;
+}
+double func4(double x, double y) {
+  return y * sqrt(x) - 2 * std::pow(y, 2) - x + 14 * y;
+}
+double func5(double x, double y) {
+  return x + 4 * y - 6 - 2 * log(x * y) - 3 * log(y);
+}
+
+TEST(GLOBAL_OPTIMIZATION_PARALLEL, TEST_1) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  double (*function_pointer)(double, double) = func1;
+  double start = MPI_Wtime();
+  threeDimRes result =
+      getGlobalOptimizationParallel(-5, 5, -5, 5, function_pointer,0.01,1000);
+  double end = MPI_Wtime();
+  if (rank == 0) {
+    double ptime = end - start;
+
+    start = MPI_Wtime();
+    threeDimRes reference_result =
+        getGlobalOptimizationSequential(-5, 5, -5, 5, function_pointer,0.01,1000);
+    end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << stime << " " << ptime << std::endl;
+    std::cout << stime / ptime << std::endl;
+
+    ASSERT_TRUE(isCorrect(result, reference_result, 0.1));
+  }
+}
+
+TEST(GLOBAL_OPTIMIZATION_PARALLEL, TEST_2) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  double (*function_pointer)(double, double) = func2;
+  threeDimRes result =
+      getGlobalOptimizationParallel(-0.9, 1, -1, 1, function_pointer);
+  if (rank == 0) {
+    threeDimRes reference_result = {0, 0, 4};
+    ASSERT_TRUE(isCorrect(result, reference_result, 0.1));
+  }
+}
+
+TEST(GLOBAL_OPTIMIZATION_PARALLEL, TEST_3) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  double (*function_pointer)(double, double) = func3;
+  threeDimRes result =
+      getGlobalOptimizationParallel(0, 2, 0.3, 1, function_pointer);
+  if (rank == 0) {
+    threeDimRes reference_result = {1, 0.5, 4};
+    ASSERT_TRUE(isCorrect(result, reference_result, 0.1));
+  }
+}
+
+TEST(GLOBAL_OPTIMIZATION_PARALLEL, TEST_4) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  double (*function_pointer)(double, double) = func4;
+  double start = MPI_Wtime();
+  threeDimRes result =
+      getGlobalOptimizationParallel(10, 500, -500, 500, function_pointer, 0.001,1000,0.001);
+  double end = MPI_Wtime();
+  if (rank == 0) {
+
+    double ptime = end - start;
+    double start = MPI_Wtime();
+
+    threeDimRes reference_result = getGlobalOptimizationSequential(10, 500, -500, 500, function_pointer, 0.001, 1000, 0.001);
+    double end = MPI_Wtime();
+    double stime = end - start;
+    std::cout << stime << " " << ptime << std::endl;
+    std::cout << stime / ptime << std::endl;
+    ASSERT_TRUE(isCorrect(result, reference_result, 0.1));
+  }
+}
+
+TEST(GLOBAL_OPTIMIZATION_PARALLEL, TEST_5) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  double (*function_pointer)(double, double) = func5;
+  threeDimRes result =
+      getGlobalOptimizationParallel(1, 3, 1, 2, function_pointer);
+  if (rank == 0) {
+    threeDimRes reference_result = {2, 1.25, -1.5};
+    ASSERT_TRUE(isCorrect(result, reference_result, 0.1));
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
