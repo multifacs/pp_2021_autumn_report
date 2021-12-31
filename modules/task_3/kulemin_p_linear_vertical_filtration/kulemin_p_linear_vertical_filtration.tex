@@ -1,0 +1,485 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Линейная фильтрация изображений (блочное разбиение). Ядро Гаусса 3x3»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Кулемин П.А\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Фильтрация изображений - это подавление шума целевого изображения при максимально возможном сохранении деталей изображения. Это неотъемлемая часть предварительной обработки изображения. Качество обработки напрямую влияет на эффект последующей обработки и надежность анализа. Матричные фильтры в науке нужны для подготовки изображений; улучшения из визуального восприятия; распознавания образов – компьютерное зрение.Размытие по Гауссу в цифровой обработке изображений — способ размытия изображения с помощью функции Гаусса, названной в честь немецкого математика Карла Фридриха Гаусса.
+Этот эффект широко используется в графических редакторах для уменьшения шума изображения и снижения детализации. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данном лабораторной работе требуется реализовать последовательный и параллельный алгоритмы линейной фильтрации изображений с блочным разбиением с ядром Гаусса 3х3, провести серию экспериментв для сравнения времени работы алгоритмов, на основе которых сделать выводы о эффективности программы, используя при этом фрэймворк для разработки автоматических тестов Google Test.
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par 
+Создаем ядро Гаусса размером 3х3. 
+\par Агоритм Фильтра Гаусса :
+\begin{itemize}
+\item Для каждого пикселя исходного изображения рассматривается область 3x3. 
+\item Значение каждого пикселя из этой области умножается на значение из соответствующей ячейки в ядре , и полученный результат от произведения прибавляется к переменой color. 
+\item Для нового изображения соответствующий пиксель кладётся значение специально созданной переменной color.
+\end{itemize}
+
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par 
+Для распараллеливания алгоритма фильтра Гаусса необходимо разделить массив значений исходного изображения блочно на подмассивы
+\begin{itemize}
+\item Число разбиений равно числу процессов 
+\item Изображение делим на прямоугольники. Но изображение хранится в однородном массиве, то необходимо каждый раз создавать однородный массив прямоугольника специальной функцией.
+\item К каждому прямоугольнику разбиения применить фильтр Гаусса.
+\item "Сливаем" итоговое изображение
+\end{itemize}
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла linear\_vertical\_filtration.h и двух файлов исходного кода linear\_vertical\_filtration.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного алгоритмов линейной фильтрации изображений .
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+std::vector<float> getSequentialOperations(const std::vector<float>& matrix,
+ const std::vector<float>& img, int weight, int height);
+\end{lstlisting}
+Первый параметр функции является ссылка на ядро, второй - ссылка на изображение, третий - ширина изображения, четвертый - высота изображения.
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+std::vector<float> getParallelOperations(const std::vector<float>& matrix,
+const std::vector<float>& img, int weight, int height) 
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода linear\_vertical\_filtration.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности выполения программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы были разработаны тесты с помощью фрэймфорка Google Test. В каждом из тестов изображение обрабатывается параллельно, затем последовательно. после чего чего результаты сравниваются.
+
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel Core i5 , 2.5 ГГц (3.5 ГГц, в режиме Turbo), количество ядер: 4;
+\item Оперативная память: 8 ГБ (DDR4), 3200 МГц;
+\item Операционная система: Windows 10 .
+\end{itemize}
+
+\par Эксперименты проводились на различном числе процессов для обработки изображения .
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте 4}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 0.0747633        & 0.0714764     & 1.04603       \\
+2        & 0.0734998        & 0.0426862     & 1.72186       \\
+3        & 0.074673        & 0.0349949     &  2.13383      \\
+4        & 0.075088        &  0.0320566     &  2.34236       \\
+5        & 0.0774086        & 0.0410889     & 1.88393      \\
+6        &  0.0764863        & 0.03843     & 1.99028       \\
+7        & 0.0736531        & 0.0353193     & 2.08535       \\
+9        & 0.0745213        & 0.0394986     & 1.88668	    \\
+11        &  0.0751149        &  0.0404992   & 1.85473	  \\
+33        & 0.156293        & 0.0660037     & 2.36794	  \\
+\hline
+\end{tabular}
+\end{table}
+Таким образом, по результатам экспериментов можно сделать вывод о росте эффективности  распараллеливания с ростом числа задействованных процессов с  1 до  2
+
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения  данной лабораторной работы были разработаны последовательный и параллельный алгоритмы  линейной фильтрации изображений с ядром Гаусса 3х3 .
+\par Проведенные тесты показали корректность реализованной программы, а  эксперименты доказали, что параллельная версия алгоритма работает быстрее, а значит задача параллельного программирования решена успешно.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+
+\item Гергель В. П. Теория и практика параллельных вычислений. – 2007. 
+\item Википедия - Электронный ресурс. URL: https://ru.wikipedia.org/wiki/%D0%A0%D0%B0%D0%B7%D0%BC%D1%8B%D1%82%D0%B8%D0%B5_%D0%BF%D0%BE_%D0%93%D0%B0%D1%83%D1%81%D1%81%D1%83
+\itemГергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+linear\_vertical\_filtration.cpp 
+\begin{lstlisting}
+#include <mpi.h>
+#include <vector>
+#include <random>
+#include <ctime>
+#include <iostream>
+#include "../../../modules/task_3/kulemin_p_linear_vertical_filtration/linear_vectrical_filtration.h"
+
+using std::vector;
+
+
+void getKernell(vector<float>* matrix, float sigma) {
+    std::mt19937 gen(time(0));
+    std::uniform_real_distribution<> urd(0, 1);
+    float norm = 0;
+    matrix->resize(9);
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            int idx = (x + 1) * 3 + (y + 1);
+            (*matrix)[idx] = std::exp(-(x * x + y * y) / (sigma * sigma));
+            norm += (*matrix)[idx];
+        }
+    }
+    for (int i = 0; i < 9; i++) {
+        if ((i != 1) && (i != 4) && (i != 7))(*matrix)[i] = 0.f;
+        (*matrix)[i] /= norm;
+    }
+}
+
+int calculate_index(int x, int y, int weight) {
+    return y * weight + x;
+}
+
+
+float calculatedNewPixelColor(const vector<float>& matrix,
+ const vector<float>&image, int height,
+    int weight, const int x, const int y) {
+    float color = 0;
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            int idx = (i + 1) * 3 + j + 1;
+            float imgColor = image[calculate_index(clamp(x + j, weight - 1, 0),
+             clamp(y + i, height - 1, 0), weight)];
+            color += (imgColor) * matrix[idx];
+        }
+    }
+    return color;
+}
+
+
+void getRandomImg(std::vector<float>* img, int weight, int height) {
+    std::mt19937 gen(time(0));
+    std::uniform_real_distribution<> urd(0, 1);
+
+    img->resize(weight*height);
+    for (int i = 0; i < (weight*height); ++i) {
+        img->at(i) = urd(gen);
+    }
+}
+
+std::vector<float> getSequentialOperations(const std::vector<float>& matrix,
+ const std::vector<float>& img, int weight, int height) {
+    vector<float> resultMatrix(weight * height);
+
+    for (int x = 0; x < weight; ++x) {
+        for (int  y = 0; y < height; y++) {
+            float value = calculatedNewPixelColor(matrix, img,
+             height, weight, x, y);
+            resultMatrix[calculate_index(x, y, weight)] = value;
+        }
+    }
+
+    return resultMatrix;
+}
+
+std::vector<float> getParallelOperations(const std::vector<float>& matrix,
+const std::vector<float>& img, int weight, int height) {
+    int num, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &num);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int delta = weight / num;
+    int rem = weight % num;
+    vector<int> processes(num);
+    vector<int> toright(num);
+    vector< vector<float> > buffer(height);
+    vector<float>res;
+    for (int i = 0; i < height; i++)
+    buffer[i].resize(weight);
+    processes[0] = delta + rem;
+    toright[0] = 0;
+    for (int i = 1; i < num; i++) {
+        processes[i] = delta;
+        toright[i] = toright[i - 1] + processes[i-1];
+    }
+    if (delta) {
+            for (int row = 0; row < (height); row++) {
+               MPI_Scatterv(img.data() + row * weight, processes.data(),
+               toright.data(), MPI_FLOAT, (buffer[row]).data(), processes[rank],
+               MPI_FLOAT, 0, MPI_COMM_WORLD);
+            }
+
+
+        vector<float>ipart;
+
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < processes[rank]; j++) {
+                ipart.push_back(buffer[i][j]);
+            }
+        }
+        ipart = getSequentialOperations(matrix, ipart, processes[rank], height);
+
+        for (int i = 0; i < height; i++) {
+            MPI_Gatherv(ipart.data() + i * processes[rank],
+            processes[rank], MPI_FLOAT,
+            (buffer[i]).data(), processes.data(),
+            toright.data(), MPI_FLOAT, 0, MPI_COMM_WORLD);
+        }
+        if (rank == 0) {
+            for (int i = 0; i < height; i++) {
+                for (int j = 0; j < weight; j++) {
+                    res.push_back(buffer[i][j]);
+                }
+            }
+        }
+    } else {
+        if (rank == 0) {
+            res = getSequentialOperations(matrix, img, weight, height);
+        }
+    }
+    return res;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Zaytsev Mikhail
+#include <gtest/gtest.h>
+#include <vector>
+#include "./linear_vectrical_filtration.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Parallel_Matrix_Multiplacition, mRows_Eq_mColumns_50) {
+    int currentProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentProcess);
+
+    std::vector<float> matrix, img;
+    int height = 50;
+    int weight = 50;
+    getKernell(&matrix);
+
+    if (currentProcess == 0) {
+        getRandomImg(&img, weight, height);
+    }
+    std::vector<float> globalMatrix = getParallelOperations(matrix, img,
+   weight, height);
+    if (currentProcess == 0) {
+        std::vector<float> referenceMatrix = getSequentialOperations(matrix,
+        img, weight, height);
+        ASSERT_EQ(globalMatrix, referenceMatrix);
+    }
+}
+
+TEST(Parallel_Matrix_Multiplacition, mRows_Eq_mColumns_5) {
+    int currentProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentProcess);
+
+    std::vector<float> matrix, img;
+    int height = 5;
+    int weight = 5;
+    getKernell(&matrix);
+
+    if (currentProcess == 0) {
+        getRandomImg(&img, weight, height);
+    }
+
+    std::vector<float> globalMatrix = getParallelOperations(matrix,
+    img, weight, height);
+
+    if (currentProcess == 0) {
+        std::vector<float> referenceMatrix = getSequentialOperations(matrix,
+        img, weight, height);
+        ASSERT_EQ(globalMatrix, referenceMatrix);
+    }
+}
+
+TEST(Parallel_Matrix_Multiplacition, mRows_Eq_mColumns_211) {
+    int currentProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentProcess);
+
+    std::vector<float> matrix, img;
+    int height = 211;
+    int weight = 211;
+    getKernell(&matrix);
+
+    if (currentProcess == 0) {
+        getRandomImg(&img, weight, height);
+    }
+
+    std::vector<float> globalMatrix = getParallelOperations(matrix,
+    img, weight, height);
+
+    if (currentProcess == 0) {
+        std::vector<float> referenceMatrix = getSequentialOperations(matrix,
+        img, weight, height);
+        ASSERT_EQ(globalMatrix, referenceMatrix);
+    }
+}
+
+TEST(Parallel_Matrix_Multiplacition, mRows_Gr_mColumns_150_100) {
+    int currentProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentProcess);
+    std::vector<float> matrix, img;
+    int height = 150;
+    int weight = 100;
+    getKernell(&matrix);
+    if (currentProcess == 0) {
+        getRandomImg(&img, weight, height);
+    }
+
+    std::vector<float> globalMatrix = getParallelOperations(matrix,
+    img, weight, height);
+
+    if (currentProcess == 0) {
+        std::vector<float> referenceMatrix = getSequentialOperations(matrix,
+        img, weight, height);
+        ASSERT_EQ(globalMatrix, referenceMatrix);
+    }
+}
+
+TEST(Parallel_Matrix_Multiplacition, mRows_Le_mColumns_100_150) {
+    int currentProcess;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentProcess);
+
+    std::vector<float> matrix, img;
+    int height = 100;
+    int weight = 150;
+    getKernell(&matrix);
+    if (currentProcess == 0) {
+        getRandomImg(&img, weight, height);
+    }
+
+    std::vector<float> globalMatrix = getParallelOperations(matrix,
+    img, weight, height);
+
+    if (currentProcess == 0) {
+        std::vector<float> referenceMatrix = getSequentialOperations(matrix,
+        img, weight, height);
+        ASSERT_EQ(globalMatrix, referenceMatrix);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
