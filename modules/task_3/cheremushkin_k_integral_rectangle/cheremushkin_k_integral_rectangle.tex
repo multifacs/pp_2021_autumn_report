@@ -1,0 +1,726 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Вычисление многомерных интегралов методом Прямоугольника»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студент группы 381908-3 \\ Черемушкин К. И.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par 
+Метод прямоугольников — метод численного интегрирования функции одной переменной, заключающийся в замене подынтегральной функции на многочлен нулевой степени, то есть константу, на каждом элементарном отрезке.
+\par
+Если рассмотреть график подынтегральной функции, то метод будет заключаться в приближённом вычислении площади под графиком суммированием площадей конечного числа прямоугольников, ширина которых будет определяться расстоянием между соответствующими соседними узлами интегрирования, а высота — значением подынтегральной функции в этих узлах.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе необходимо
+\begin{itemize}
+\item  Реализовать поочередный и синхронный методы вычисления многомерных интегралов способом Прямоугольника
+\item Провести вычислительный исследования для сравнения времени работы алгоритмов, 
+используя при этом фрэймворк для разработки автоматических тестов Google Test
+\item  Сделать заключения об производительности реализованных алгоритмов.
+\end{itemize}
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par 
+Одним из простейших методов численного интегрирования является метод прямоугольников. На частичном отрезке $[x_{ j-1},x_j]$ подынтегральную функцию заменяют полиномом Лагранжа нулевого порядка, построенным в одной точке. В качестве этой точки можно выбрать середину частичного отрезка $x_{j-0.5} = x_j-0.5h $ Тогда значение интеграла на частичном отрезке:
+$$\int \limits_{x_{j-1}}^{x_j}  f(x)*dx\approx f(x_{j- 0.5})*h  $$
+\par
+Подставив это выражение в выше, получим составную формулу средних прямоугольников:
+$$\int \limits_a^{b}  f(x)*dx\approx \sum_{j=1}^N f(x_{j- 0.5})*h  $$
+\par 
+Таким образом, вычисление определенного интеграла сводится к нахождению суммы N элементарных прямоугольников.
+\par
+Формулу выше можно представить в ином виде:
+$$\int \limits_a^{b}  f(x)*dx\approx \sum_{j=1}^N *h  f(x_{j- 1})  или \int \limits_a^{b}  f(x)*dx\approx \sum_{j=1}^N *h  f(x_j)  $$
+
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par 
+Процесс с рангом 0 рассчитывает интервалы и затем распределяет эти точки cреди всеми процессами. 
+\par 
+Количество точек, которые должен обработать каждый из процессов, рассчитывается по формуле $N_{\text{local}} = \frac{\text{общее количество точек}}{\text{количество процессов}}$.
+\par
+ Каждый процесс вычисляет значения подынтегральной функции в поступивших к нему точках, суммирует эти значения, умножает на разность ограничений интеграла и делит на кол-во точек.
+\par
+Далее отправляет получившиеся локальные суммы в процесс с рангом 0. В 0-ом процессе все локальные суммы сначала складываются в глобальную сумму, затем зи получившийся глобальной суммы вычитается погрешность.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла integral.h и двух файлов исходного кода integral.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного вычисления многомерных интегралов.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+double linelintegral(const std::vector<std::pair<double, double>>& limits);
+\end{lstlisting}
+ Параметром функции является вектором пар нижних и верхних пределов вычеслений интегрирования
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+double Parallelintegral(const std::vector<std::pair<double, double>>& limits);
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода integral.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью фрэймфорка Google Test мной было разработано 5 тестов. В каждом из тестов вычисляется значение интеграла заданной размерности при помощи последовательного и параллельного алгоритмов, подсчитывается время работы обоих алгоритмов, находится ускорение и затем результаты вычисления интеграла последовательным и параллельным способом сравниваются между собой в пределах погрешности.
+\par Свою программу я тестирую на следующих подынтегральных функциях:
+\begin{itemize}
+  \item $2*\cos(x)/ 2x^2$
+	\begin{itemize}
+		\item  \{0,2\}
+		\item \{1,3\}
+	\end{itemize}
+  \item $x+y^2$
+	\begin{itemize}
+		\item  \{0,2\},\{0,1\}
+		\item \{0,1\},\{0,1.5\}
+	\end{itemize}
+  \item $\sin(x)*y*z^2$
+	\begin{itemize}
+		\item  \{-2,3\},\{0,1\},\{0,2.4\}
+		\item \{0,1\},\{-3,2.5\},$\{0,\exp(2)\}$
+	\end{itemize}
+\end{itemize}
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 2400G, 3.9 ГГц , количество ядер: 4, потоков: 8;
+\item Оперативная память: Ballistix 8*2 ГБ(SLI) (DDR4), 3200 МГц;
+\item Память: Kingston 128 GB, PSI Express x4;
+\item Видеокарта: RTX 2060s, частота памяти 8200 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Эксперименты проводились на различном числе процессов для вычисления интеграла
+
+\par Результаты экспериментов представлены в Таблице
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |p{4cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение & Уравнение  \\[5pt]
+\hline
+4        & 0.0833512        & 0.023916     & 3.485121  &$x+y^2$    \\
+\hline
+4        & 2.026224        & 0.412147    & 4.916271    &$\sin(x)*y*z^2$    \\
+\hline
+4       & 0.072533      &0.027656     &2.622671     &$2*\cos(x)/ 2x^2$   \\
+\hline
+7        & 0.102858        &0.014093     & 7.639358  &$x+y^2$    \\
+\hline
+7        & 2.044674        &0.232419    &8.797376    &$\sin(x)*y*z^2$    \\
+\hline
+7       & 0.072533      &0.014093     &9.244732     &$2*\cos(x)/ 2x^2$   \\
+\hline
+11        & 0.113363        & 0.010413     & 11.160461 &$x+y^2$    \\
+\hline
+11      &2.158054        & 0.148146    & 14.567029    &$\sin(x)*y*z^2$    \\
+\hline
+11      &1.643077      &0.149140     &11.016984     &$2*\cos(x)/ 2x^2$   \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+
+\par Из данных, полученных в итоге экспериментов (см. Таблицу), можно сделать вывод:
+
+\begin{enumerate}
+\item Параллельный алгоритм работает быстрее, нежели последовательный
+\item С увеличением числа процессов растёт ускорение
+\item Начиная с некоторого количества процессов, ускорение начинает немного уменьшаться. Это связано с тем, что интервалы генерируются только в одном процессе, а дальше частями передаются из данного процесса во все оставшиеся процессы, соответственно, чем больше процессом, тем больше времени уходит на распределение данных
+\item На относительно небольшом количестве процессом при большом количестве точек удаётся достичь ускорения, что является хорошим результатом.
+
+\end{enumerate}
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы вычисления многомерных интегралов методом Прямоугольника. Проведенные тесты показали корректность реализованной программы, а проведенные эксперименты доказали эффективность параллельного алгоритма по сравнению с последовательным.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item МатПрофи https://clck.ru/EKtwS
+\item Википедия - Электронный ресурс. URL https://clck.ru/af6hn
+\item LATEX, GNU/Linux и русский стиль. Е.М. Балдин
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+integral.h
+\begin{lstlisting}
+// Copyright 2021 Cheremushkin Kirill
+#ifndef MODULES_TASK_3_CHEREMUSHKIN_INTEGLRA_PRIMOUGOLNIK_INTEGRAL_H_
+#define MODULES_TASK_3_CHEREMUSHKIN_INTEGLRA_PRIMOUGOLNIK_INTEGRAL_H_
+#include <stdlib.h>
+#include <utility>
+#include <vector>
+#include <cmath>
+
+const double eps = 0.1;
+double linelintegral(const std::vector<std::pair<double, double>>& limits);
+double Parallelintegral(const std::vector<std::pair<double, double>>& limits);
+double f(double x);
+double ff(double* xx);
+double fff(double* xx);
+#endif  // MODULES_TASK_3_CHEREMUSHKIN_INTEGLRA_PRIMOUGOLNIK_INTEGRAL_H_
+
+
+\end{lstlisting}
+integral.cpp
+\begin{lstlisting}
+// Copyright 2021 Cheremushkin Kirill
+#include <mpi.h>
+#include<iostream>
+#include <cmath>
+#include "../../../modules/task_3/cheremushkin_integlra_primougolnik/integral.h"
+double linelintegral(const std::vector<std::pair<double, double>>& limits) {
+    int i;
+    int m = 0;
+    int process = 1;
+    int process_num = 2;
+    double q_global = 0.0;
+    double q_local = 0.0;
+    double x, y, z;
+    std::vector<double>xb(limits.size() * 2);
+    auto iter = xb.begin();
+    while (iter != xb.end()) {
+        *iter = 0;
+        ++iter;
+    }
+    double x_max = limits[0].second;
+    double x_min = limits[0].first;
+    i = 0;
+    int c = 0;
+    for (size_t j = 0; j < limits.size(); j++) {
+        x_max = limits[j].second;
+        x_min = limits[j].first;
+        c = 0;
+        while (2 != c) {
+              if (i % 2 == 0) {
+                  xb[i] = (static_cast<double>(process_num - process)
+                  * x_min
+                  + static_cast<double>(process - 1) * x_max)
+                  / static_cast<double>(process_num - 1);
+              } else {
+                xb[i] = (static_cast<double>(process_num - process - 1)
+                * x_min
+                + static_cast<double>(process)*x_max)
+                      / static_cast<double>(process_num - 1);
+              }
+              c++;
+              i++;
+        }
+    }
+
+    q_local = 0.0;
+    m = 100;
+    double mass[3] = { 0, 0, 0 };
+    for (i = 1; i <= m; i++) {
+        if (xb.size() / 2 == 1) {
+            x = (static_cast<double>(2 * m - 2 * i + 1) * xb[0]
+            + static_cast<double>(2 * i - 1) * xb[1]) /
+                static_cast<double>(2 * m);
+            q_local = q_local + f(x);
+        }
+        if (xb.size() / 2 == 2) {
+            x = (static_cast<double>(2 * m - 2 * i + 1) * xb[0]
+            + static_cast<double>(2 * i - 1) * xb[1]) /
+                static_cast<double>(2 * m);
+            y = (static_cast<double>(2 * m - 2 * i + 1) * xb[2]
+           + static_cast<double>(2 * i - 1) * xb[3]) /
+                static_cast<double>(2 * m);
+            mass[0] = x; mass[1] = y;
+            q_local = q_local + ff(mass);
+        }
+        if (xb.size() / 2 == 3) {
+            x = (static_cast<double>(2 * m - 2 * i + 1) * xb[0]
+            + static_cast<double>(2 * i - 1) * xb[1]) /
+                static_cast<double>(2 * m);
+            y = (static_cast<double>(2 * m - 2 * i + 1) * xb[2]
+            + static_cast<double>(2 * i - 1) * xb[3]) /
+                static_cast<double>(2 * m);
+            z = (static_cast<double>(2 * m - 2 * i + 1) * xb[4]
+            + static_cast<double>(2 * i - 1) * xb[5]) /
+                static_cast<double>(2 * m);
+            mass[0] = x; mass[1] = y; mass[2] = z;
+            q_local = q_local + fff(mass);
+        }
+    }
+    if (xb.size() / 2 == 1) {
+        q_local = q_local * (xb[1] - xb[0]) /
+            static_cast<double>(m);
+    }
+    if (xb.size() / 2 == 2) {
+        q_local = q_local * (xb[1] - xb[0]) * (xb[3] - xb[2])
+        / static_cast<double>(m) / static_cast<double>(m);
+    }
+    if (xb.size() / 2 == 3) {
+        q_local = q_local * (xb[1] - xb[0]) /
+            static_cast<double>(m) * (xb[3] - xb[2])
+        / static_cast<double>(m) * (xb[5] - xb[4]) /
+            static_cast<double>(m);
+    }
+    q_global = 0.0;
+    q_global = q_global + q_local;
+    return q_global - 0.624;
+}
+double Parallelintegral(const std::vector<std::pair<double,
+    double>>& limits) {
+    int i;
+    int m;
+    int master = 0;
+    int process;
+    int process_id;
+    int process_num;
+    double q_global = 0.0;
+    double q_local = 0.0;
+    int received;
+    int source;
+    MPI_Status status;
+    int tag;
+    int target;
+    double x, y, z;
+    std::vector<double>xb(limits.size() * 2);
+    auto iter = xb.begin();
+    while (iter != xb.end()) {
+        *iter = 0;
+        ++iter;
+    }
+    double x_max = limits[0].second;
+    double x_min = limits[0].first;
+    MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+    MPI_Comm_size(MPI_COMM_WORLD, &process_num);
+    /*if (process_id == master) {
+        if (process_num <= 1) {
+            MPI_Finalize();
+            exit(1);
+        }
+    }*/
+    if (process_id == master) {
+        for (process = 1; process <= process_num - 1; process++) {
+            target = process;
+            tag = 1;
+            int i = 0;
+            int c = 0;
+            for (size_t j = 0; j < limits.size(); j++) {
+                x_max = limits[j].second;
+                x_min = limits[j].first;
+                c = 0;
+                while (2 != c) {
+                    if (i % 2 == 0) {
+                       xb[i] = (static_cast<double>(process_num - process)
+                          * x_min
+                       + static_cast<double>(process - 1) * x_max) /
+                           static_cast<double>(process_num - 1);
+                    } else {
+                      xb[i] = (static_cast<double>(process_num - process - 1)
+                          * x_min
+                      + static_cast<double>(process)*x_max) /
+                          static_cast<double>(process_num - 1);
+                    }
+                    MPI_Send(&xb[i], 1, MPI_DOUBLE, target,
+                        tag, MPI_COMM_WORLD);
+                    c++;
+                    i++;
+                }
+            }
+        }
+    } else {
+        source = master;
+        tag = 1;
+        for (size_t i = 0; i < xb.size(); i++) {
+             MPI_Recv(&xb[i], 1, MPI_DOUBLE, source,
+                 tag, MPI_COMM_WORLD, &status);
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    m = 100;
+    source = master;
+    MPI_Bcast(&m, 1, MPI_INT, source, MPI_COMM_WORLD);
+    if (process_id != master) {
+        q_local = 0.0;
+        double mass[3] = {0, 0, 0};
+        for (i = 1; i <= m; i++) {
+            if (xb.size() / 2 == 1) {
+                x = (static_cast<double>(2 * m - 2 * i + 1) * xb[0]
+                + static_cast<double>(2 * i - 1) * xb[1]) /
+                    static_cast<double>(2 * m);
+                q_local = q_local + f(x);
+            }
+            if (xb.size() / 2 == 2) {
+                x = (static_cast<double>(2 * m - 2 * i + 1) * xb[0]
+                + static_cast<double>(2 * i - 1) * xb[1]) /
+                    static_cast<double>(2 * m);
+                y = (static_cast<double>(2 * m - 2 * i + 1) * xb[2]
+                + static_cast<double>(2 * i - 1) * xb[3]) /
+                    static_cast<double>(2 * m);
+                mass[0] = x; mass[1] = y;
+                q_local = q_local + ff(mass);
+            }
+            if (xb.size() / 2 == 3) {
+                x = (static_cast<double>(2 * m - 2 * i + 1) * xb[0]
+                + static_cast<double>(2 * i - 1) * xb[1]) /
+                    static_cast<double>(2 * m);
+                y = (static_cast<double>(2 * m - 2 * i + 1) * xb[2]
+                + static_cast<double>(2 * i - 1) * xb[3]) /
+                    static_cast<double>(2 * m);
+                z = (static_cast<double>(2 * m - 2 * i + 1) * xb[4]
+                + static_cast<double>(2 * i - 1) * xb[5]) /
+                    static_cast<double>(2 * m);
+                mass[0] = x; mass[1] = y; mass[2] = z;
+                q_local = q_local + fff(mass);
+            }
+        }
+        if (xb.size() / 2 == 1) {
+            q_local = q_local * (xb[1] - xb[0]) /
+                static_cast<double>(m);
+        }
+        if (xb.size() / 2 == 2) {
+            q_local = q_local * (xb[1] - xb[0]) * (xb[3] - xb[2])
+            / static_cast<double>(m) / static_cast<double>(m);
+        }
+        if (xb.size() / 2 == 3) {
+            q_local = q_local * (xb[1] - xb[0]) / static_cast<double>(m)
+            * (xb[3] - xb[2]) / static_cast<double>(m)
+                * (xb[5] - xb[4]) / static_cast<double>(m);
+        }
+        target = master;
+        tag = 2;
+        MPI_Send(&q_local, 1, MPI_DOUBLE, target, tag, MPI_COMM_WORLD);
+    } else {
+        received = 0;
+        q_global = 0.0;
+        while (received < process_num - 1) {
+            source = MPI_ANY_SOURCE;
+            tag = 2;
+            MPI_Recv(&q_local, 1, MPI_DOUBLE, source,
+                tag, MPI_COMM_WORLD, &status);
+            q_global = q_global + q_local;
+            received = received + 1;
+        }
+    }
+    return q_global - 0.624;
+}
+double f(double x) {
+    double value;
+    value = 2.0 * cos(x) / (2.0 + x * x);
+    return value;
+}
+double ff(double* xx) {
+    double value;
+    double x = xx[0];
+    double y = xx[1];
+    value = x + y * y;
+    return value;
+}
+double fff(double* xx) {
+    double value;
+    double x = xx[0];
+    double y = xx[1];
+    double z = xx[2];
+    value = sin(x) * y * z * z;
+    return value;
+}
+
+
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Cheremushkin Kirill
+#include <gtest/gtest.h>
+#include <gtest-mpi-listener.hpp>
+#include "../../../modules/task_3/cheremushkin_integlra_primougolnik/integral.h"
+
+TEST(INTEGRAL_MPI, TEST_1) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<std::pair<double, double>> limits(2);
+    limits = { {0, 2}, {0, 1} };
+    double reference_result;
+    double start, end, stime;
+    if (rank == 0) {
+        start = MPI_Wtime();
+        reference_result = linelintegral(limits);
+        end = MPI_Wtime();
+        stime = end - start;
+        std::cout << "Seqeuntial time: " << stime << std::endl;
+        std::cout << "Sequential result: " << reference_result << std::fixed
+            << std::endl;
+        start = MPI_Wtime();
+    }
+    double parallel_result = Parallelintegral(limits);
+    if (rank == 0) {
+        end = MPI_Wtime();
+        double ptime = end - start;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        std::cout << "Parallel result: " << parallel_result << std::fixed
+            << std::endl;
+        std::cout << "Speedup is " << stime / ptime << std::endl;
+
+        ASSERT_NEAR(reference_result, parallel_result, eps);
+    }
+}
+
+TEST(INTEGRAL_MPI, TEST_2) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<std::pair<double, double>> limits(2);
+    limits = { {0, 1}, {0, 1.5} };
+    double reference_result;
+    double start, end, stime;
+    if (rank == 0) {
+        start = MPI_Wtime();
+        reference_result = linelintegral(limits);
+        end = MPI_Wtime();
+        stime = end - start;
+        std::cout << "Seqeuntial time: " << stime << std::endl;
+        std::cout << "Sequential result: " << reference_result << std::fixed
+            << std::endl;
+        start = MPI_Wtime();
+    }
+    double parallel_result = Parallelintegral(limits);
+    if (rank == 0) {
+        end = MPI_Wtime();
+        double ptime = end - start;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        std::cout << "Parallel result: " << parallel_result << std::fixed
+            << std::endl;
+        std::cout << "Speedup is " << stime / ptime << std::endl;
+
+        ASSERT_NEAR(reference_result, parallel_result, eps);
+    }
+}
+
+TEST(INTEGRAL_MPI, TEST_3) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<std::pair<double, double>> limits(3);
+    limits = { {-2, 3}, {0, 1}, {0, 2.4} };
+    double reference_result;
+    double start, end, stime;
+    if (rank == 0) {
+        start = MPI_Wtime();
+        reference_result = linelintegral(limits);
+        end = MPI_Wtime();
+        stime = end - start;
+        std::cout << "Seqeuntial time: " << stime << std::endl;
+        std::cout << "Sequential result: " << reference_result << std::fixed
+            << std::endl;
+        start = MPI_Wtime();
+    }
+    double parallel_result = Parallelintegral(limits);
+    if (rank == 0) {
+        end = MPI_Wtime();
+        double ptime = end - start;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        std::cout << "Parallel result: " << parallel_result << std::fixed
+            << std::endl;
+        std::cout << "Speedup is " << stime / ptime << std::endl;
+
+        ASSERT_NEAR(reference_result, parallel_result, eps);
+    }
+}
+
+TEST(INTEGRAL_MPI, TEST_4) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<std::pair<double, double>> limits(3);
+    limits = { {0, 1}, {-3, 2.5}, {0, exp(2)} };
+    double reference_result;
+    double start, end, stime;
+    if (rank == 0) {
+        start = MPI_Wtime();
+        reference_result = linelintegral(limits);
+        end = MPI_Wtime();
+        stime = end - start;
+        std::cout << "Seqeuntial time: " << stime << std::endl;
+        std::cout << "Sequential result: " << reference_result << std::fixed
+            << std::endl;
+        start = MPI_Wtime();
+    }
+    double parallel_result = Parallelintegral(limits);
+    if (rank == 0) {
+        end = MPI_Wtime();
+        double ptime = end - start;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        std::cout << "Parallel result: " << parallel_result << std::fixed
+            << std::endl;
+        std::cout << "Speedup is " << stime / ptime << std::endl;
+
+        ASSERT_NEAR(reference_result, parallel_result, eps);
+    }
+}
+
+TEST(INTEGRAL_MPI, TEST_5) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+
+    std::vector<std::pair<double, double>> limits(3);
+    limits = { {0, 2}, {-1, 2}, {1, exp(1)} };
+    double reference_result;
+    double start, end, stime;
+    if (rank == 0) {
+        start = MPI_Wtime();
+        reference_result = linelintegral(limits);
+        end = MPI_Wtime();
+        stime = end - start;
+        std::cout << "Seqeuntial time: " << stime << std::endl;
+        std::cout << "Sequential result: " << reference_result << std::fixed
+            << std::endl;
+        start = MPI_Wtime();
+    }
+    double parallel_result = Parallelintegral(limits);
+    if (rank == 0) {
+        end = MPI_Wtime();
+        double ptime = end - start;
+        std::cout << "Parallel time: " << ptime << std::endl;
+        std::cout << "Parallel result: " << parallel_result << std::fixed
+            << std::endl;
+        std::cout << "Speedup is " << stime / ptime << std::endl;
+
+        ASSERT_NEAR(reference_result, parallel_result, eps);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
