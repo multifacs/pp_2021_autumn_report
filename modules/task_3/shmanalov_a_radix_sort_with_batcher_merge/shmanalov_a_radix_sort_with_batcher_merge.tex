@@ -1,0 +1,612 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{orange}\ttfamily,
+		morecomment=[l][\color{purple}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поразрядная сортировка для целых чисел с чётно-нечётным слиянием Бэтчера»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Шманалов А. С.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Сортировкой (англ. sorting) называется процесс упорядочивания множества объектов по какому-либо признаку. Данная операция является одной из базовых при обработке данных, которая используется в самом широком спектре задач. В настоящее время существует достаточно большое количество алгоритмов сортировки, одни из них работают достаточно быстро, другие не могут похвастаться такой особенностью. Данная лабораторная работа направлена на реализацию поразрядной сортировки для целых чисел с использованием технологии MPI и сравнении эффективности данного алгоритма с последовательной версией.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В рамках данной лабораторной работы требуется:
+\begin{enumerate}
+\item Реализовать последовательную и параллельную версии алгоритма поразрядной сортировки для целых чисел с чётно-нечётным слиянием Бэтчера;
+\item Провести тестирование программы с использованием Google C++ Testing Framework, чтобы доказать корректность работы программного кода;
+\item Провести вычислительные эксперименты и сделать выводы об эффективности реализованных алгоритмов.
+\end{enumerate}
+Реализацию параллельного алгоритма требуется выполнить с использованием технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Последовательный алгоритм поразрядной сортировки принимает вектор целых чисел, которые необходимо упорядочить. Первоначально находится максимальный элемент вектора, после чего запускается цикл, в котором элементы вектора будут сортироваться относительно разрядов максимального числа. На каждой итерации цикла будет происходить следующие действия:
+\begin{enumerate}
+\item Создается массив, в котором будет храниться количество элементов относящееся к своим цифрам (от 0 до 9) текущего разряда.
+\item Далее, начиная с первого и заканчивая последним индексом данного массива, элементы суммируются, чтобы определить позицию для перестановки элементов в результирующем векторе.
+\item Результирующий вектор сортируется относительно текущего разряда по позициям, полученным на предыдущем этапе.
+\item Значения исходного вектора заполняются текущим результирующим вектором.
+\item Далее переходим к следующему разряду и повторяем аналогичные действия до тех пор, пока не достигнем максимального разряда.
+\end{enumerate}
+В конечном итоге, после сортировки всех разрядов получится отсортированный вектор.
+\par В параллельном алгоритме поразрядной сортировки с чётно-нечётным слиянием Бэтчера исходный вектор распределяется между процессами, после чего на каждом из них локальные части исходного вектора сортируются и перемешиваются таким образом, что в начале остаются элементы, стоящие на чётных позициях, а в конце - на нечётных. Затем выполняется механизм последовательных слияний элементов чётных и нечётных позиций.
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par В начале выполнения параллельного алгоритма исходный вектор находится на процессе с нулевым рангом, следовательно первым шагом следует разделить вектор и распределить его элементы между всеми процессами.
+\par После распределения вектора выполняется поразрядная сортировка и перестановка элементов на каждом из процессов. В результате на каждом из процессов находится упорядоченный вектор, в первой половине которого находятся элементы, стоящие на четных позициях, а во второй половине - элементы, стоящие на нечетных позициях. 
+\par Следующим шагом происходят последовательные слияния в цикле по числу слияний для текущего количества процессов. 
+
+Механизм слияния происходит следующим образом:
+\begin{enumerate}
+\item Четный процесс отправляет нечетному вторую половину своего вектора, а нечетный процесс отправляет четному первую половину своего вектора.
+\item На каждом из текущих процессов выполняется частичное слияние, с помощью которого сортируются элементы. То есть четный процесс выполняет слияние для первой половины векторов, а нечетный - для второй.
+\item Нечетный процесс отправляет четному итоговое слияние вторых половин, после чего происходит итоговое слияние.
+\end{enumerate}
+
+Таким образом, сначала происходит слияние векторов четных и нечетных процессов. Потом участвуют процессы, у которых остаток от деления ранга на 4 равняется нулю для четного процесса и двум для нечетного, затем участвуют процессы, у которых остаток от деления ранга на 8 равняется нулю для четного процесса и четырем для нечетного и так далее до тех пор, пока процессы не закончатся.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+\par Программа состоит из следующих модулей:
+\begin{enumerate}
+\item \textit{radix\_sort\_with\_batcher\_merge.h} — заголовочный файл, в котором содержатся прототипы функций для реализации алгоритмов;
+\item \textit{radix\_sort\_with\_batcher\_merge.cpp} — файл с исходным кодом, в котором реализованы функции необходимые для поразрядной сортировки целых чисел;
+\item \textit{main.cpp} — модуль, в котором проводится тестирование программного кода
+\end{enumerate}
+\par \textbf{Описание функций:}
+\par \textit{Последовательный алгоритм поразрядной сортировки реализован в функции}
+\begin{lstlisting}
+std::vector<int> sequentialRadixSort(std::vector<int> array);
+\end{lstlisting}
+Функция принимает вектор, элементы которого необходимо отсортировать, после выполнения возвращает отсортированный вектор.
+\par \textit{Параллельный алгоритм поразрядной сортировки с чётно-нечётным слиянием Бэтчера реализован в функции}
+\begin{lstlisting}
+std::vector<int> parallelRadixSortMergeBatcher(std::vector<int> globalArr, 
+                                               int sizeArr);
+\end{lstlisting}
+Функция принимает вектор, элементы которого необходимо отсортировать, и количество элементов данного вектора, после выполнения возвращает отсортированный вектор.
+\par \textit{Функция перемешивания вектора}
+\begin{lstlisting}
+std::vector<int> vectorShuffle(std::vector<int> array);
+\end{lstlisting}
+Функция принимает вектор, элементы которого нужно перемешать, после выполнения возвращает вектор, в котором в первой половине содержатся элементы, стоящие на четных позициях, а во второй половине - элементы, стоящие на нечетных позициях.
+\par \textit{Функция частичного слияния нечетных элементов}
+\begin{lstlisting}
+std::vector<int> OddMerge(const std::vector<int>& arr1, 
+                          const std::vector<int>& arr2);
+\end{lstlisting}
+Функция принимает два вектора, элементы которых нужно отсортировать, после выполнения возвращает отсортированный вектор.
+\par \textit{Функция частичного слияния четных элементов}
+\begin{lstlisting}
+std::vector<int> EvenMerge(const std::vector<int>& arr1, 
+                           const std::vector<int>& arr2);
+\end{lstlisting}
+Функция принимает два вектора, элементы которых нужно отсортировать, после выполнения возвращает отсортированный вектор.
+\par \textit{Функция итогового слияния элементов}
+\begin{lstlisting}
+std::vector<int> oddEvenMerge(std::vector<int> arr1, std::vector<int> arr2, 
+                              int evenCount, int oddCount);
+\end{lstlisting}
+Функция принимает два вектора, элементы которых нужно отсортировать, и количество элементов каждого из векторов, после выполнения возвращает отсортированный вектор.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+\par Для подтверждения корректности работы программного кода реализован набор из 5 тестов с использованием Google C++ Testing Framework. Первый тест проверяет правильность выполнения параллельной сортировки на векторе из небольшого количества элементов, сравнивая полученный результат с референсным значением. Все последующие тесты выполняют сравнение результатов выполнения последовательного и параллельного алгоритмов на различном количестве элементов, подсчитывая время, затраченное на выполнение каждого алгоритма.
+\par Тестирование проводится на векторах из 10, 77, 808, 1065 и 10000 элементов.
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты по оценке эффективности параллельного алгоритма поразрядной сортировки для целых чисел с чётно-нечётным слиянием Бэтчера проводились на ПК со следующими техническими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 3500U 2.10 GHz, количество ядер: 4
+\item Оперативная память: 16 ГБ (DDR4), 3200 МГц
+\item Операционная система: Windows 10 Домашняя
+\end{itemize}
+
+\par В каждом из экспериментов производилась поразрядная сортировка вектора из 2 500 000 элементов, которые генерируются случайным образом.
+
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\centering
+\begin{tabular}{| p{2cm} | p{4cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время выполнения последовательного алгоритма (в секундах) & Время выполнения параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+2      & 1.909    & 1.36444     & 1.39911       \\
+\hline
+3       & 1.98781    & 1.19613     & 1.66187      \\
+\hline
+4       & 1.99748     & 1.02364     & 1.95134       \\
+\hline
+7      & 1.92103    & 0.968262     & 1.984       \\
+\hline
+8       & 1.9829    & 0.90966     & 2.17983      \\
+\hline
+\end{tabular}
+\caption{Результаты вычислительных экспериментов}
+
+\end{table}
+
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+\par Анализируя временные показатели, полученные в результате экспериментов (Таблица 1), можно сделать вывод о том, что параллельная реализация алгоритма работает быстрее последовательной. Кроме того, можно заметить, что при увеличении числа процессов время выполнения параллельного алгоритма уменьшается, в результате чего повышается ускорение. Наибольшей эффективности удалось добиться на 8 процессах, в данном эксперименте параллельный алгоритм показал ускорение более чем в 2 раза.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+\par В рамках данной лабораторной работы были реализованы последовательный и параллельный алгоритмы поразрядной сортировки для целых чисел с чётно-нечётным слиянием Бэтчера. При помощи тестирования программы была доказана корректность работы алгоритмов, а проведённые эксперименты доказали эффективность параллельного алгоритма поразрядной сортировки в сравнении с последовательной реализацией.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Сиднев А.А., Сысоев А.В., Мееров И.Б. «Лабораторная работа. Сортировки» - Нижний Новгород, 2010, 64 с. 
+\item Habr - Электронный ресурс. URL: https://habr.com/ru/post/261777/
+\item Intuit - Электронный ресурс. URL: https://intuit.ru/studies/courses/12181/1174/lecture/25258
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+\par radix\_sort\_with\_batcher\_merge.h
+\begin{lstlisting}
+// Copyright 2021 Shmanalov Alexander
+#ifndef MODULES_TASK_3_SHMANALOV_A_RADIX_SORT_WITH_BATCHER_MERGE_H_
+#define MODULES_TASK_3_SHMANALOV_A_RADIX_SORT_WITH_BATCHER_MERGE_H_
+
+#include <vector>
+
+std::vector<int> generationRandomVector(int size);
+std::vector<int> sequentialRadixSort(std::vector<int> array);
+std::vector<int> vectorShuffle(std::vector<int> array);
+std::vector<int> OddMerge(const std::vector<int>& arr1, 
+                          const std::vector<int>& arr2);
+std::vector<int> EvenMerge(const std::vector<int>& arr1, 
+                           const std::vector<int>& arr2);
+std::vector<int> oddEvenMerge(std::vector<int> arr1, std::vector<int> arr2, 
+                              int evenCount, int oddCount);
+std::vector<int> parallelRadixSortMergeBatcher(std::vector<int> globalArr, 
+                                               int sizeArr);
+
+#endif // MODULES_TASK_3_SHMANALOV_A_RADIX_SORT_WITH_BATCHER_MERGE_H_
+\end{lstlisting}
+\par radix\_sort\_with\_batcher\_merge.cpp
+\begin{lstlisting}
+// Copyright 2021 Shmanalov Alexander
+#include <mpi.h>
+#include <vector>
+#include <random>
+#include <algorithm>
+#include <iostream>
+#include "../../../modules/task_3/shmanalov_a/radix_sort_with_batcher_merge.h"
+
+std::vector<int> generationRandomVector(int size) {
+    std::random_device random;
+    std::mt19937 generate(random());
+    std::vector<int> array(size);
+    for (int i = 0; i < size; i++) {
+        array[i] = generate() % 100000;
+    }
+    return array;
+}
+
+std::vector<int> sequentialRadixSort(std::vector<int> array) {
+    int maxElement = 0, position = 1;
+    std::vector<int> result(array.size());
+    for (size_t i = 1; i < array.size(); i++) {
+        if (maxElement < array[i]) {
+            maxElement = array[i];
+        }
+    }
+    while (maxElement / position > 0) {
+        int counter[10] = { 0 };
+        for (size_t i = 0; i < array.size(); i++) {
+            counter[array[i] / position % 10]++;
+        }
+        for (int i = 1; i < 10; i++) {
+            counter[i] += counter[i - 1];
+        }
+        for (int i = array.size() - 1; i >= 0; i--) {
+            result[--counter[array[i] / position % 10]] = array[i];
+        }
+        for (size_t i = 0; i < array.size(); i++) {
+            array[i] = result[i];
+        }
+        position *= 10;
+    }
+    return array;
+}
+
+std::vector<int> vectorShuffle(std::vector<int> array) {
+    std::vector<int> shuffleArr(array.size());
+    for (size_t i = 0; i < array.size(); i++) {
+        if (i % 2 == 0) {
+            shuffleArr[i] = array[i];
+        } else {
+            shuffleArr[i] = array[i];
+        }
+    }
+    return shuffleArr;
+}
+
+std::vector<int> OddMerge(const std::vector<int>& arr1,
+    const std::vector<int>& arr2) {
+    std::vector<int> result(arr1.size() / 2 + arr2.size());
+    size_t i = arr1.size() / 2 + arr1.size() % 2, j = 0, k = 0, m = arr1.size();
+    while ((i < m) && (j < arr2.size())) {
+        if (arr1[i] < arr2[j]) {
+            result[k++] = arr1[i++];
+        } else {
+            result[k++] = arr2[j++];
+        }
+    }
+    while (i < m)
+        result[k++] = arr1[i++];
+    while (j < arr2.size())
+        result[k++] = arr2[j++];
+    return result;
+}
+
+std::vector<int> EvenMerge(const std::vector<int>& arr1,
+    const std::vector<int>& arr2) {
+    std::vector<int> result(arr1.size() / 2 + arr1.size() % 2 + arr2.size());
+    size_t i = 0, j = 0, k = 0, m = arr1.size() / 2 + arr1.size() % 2;
+    while ((i < m) && (j < arr2.size())) {
+        if (arr1[i] < arr2[j]) {
+            result[k++] = arr1[i++];
+        } else {
+            result[k++] = arr2[j++];
+        }
+    }
+    while (i < m)
+        result[k++] = arr1[i++];
+    while (j < arr2.size())
+        result[k++] = arr2[j++];
+    return result;
+}
+
+std::vector<int> oddEvenMerge(std::vector<int> arr1, std::vector<int> arr2,
+    int evenCount, int oddCount) {
+    int generalCount = evenCount + oddCount;
+    std::vector<int> result(generalCount);
+    int i = 0, j = 0, k = 0;
+    while ((i < evenCount) && (j < oddCount)) {
+        if (arr1[i] < arr2[j]) {
+            result[k++] = arr1[i++];
+        } else {
+            result[k++] = arr2[j++];
+        }
+    }
+    while (i < evenCount)
+        result[k++] = arr1[i++];
+    while (j < oddCount)
+        result[k++] = arr2[j++];
+    return result;
+}
+
+std::vector<int> parallelRadixSortMergeBatcher(std::vector<int> globalArr,
+    int sizeArr) {
+    // MPI information
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (sizeArr < size || size == 1 || size > sizeArr / 2) {
+        if (rank == 0) {
+            globalArr = sequentialRadixSort(globalArr);
+        }
+        return globalArr;
+    }
+    // number of elems per process
+    const int partOnProcess = sizeArr / size;
+    const int remainPart = sizeArr % size;
+    std::vector<int> localArr;
+    // memory allocation for a local array
+    if (rank == 0) {
+        localArr.reserve(sizeArr);
+        localArr.resize(partOnProcess + remainPart);
+    } else {
+        localArr.resize(partOnProcess);
+    }
+    // data distribution
+    MPI_Status status;
+    if (rank == 0) {
+        for (int i = 0; i < partOnProcess + remainPart; i++) {
+            localArr[i] = globalArr[i];
+        }
+        for (int i = 1; i < size; i++) {
+            MPI_Send(globalArr.data() + i * partOnProcess + remainPart,
+                     partOnProcess, MPI_INT, i, 1, MPI_COMM_WORLD);
+        }
+    } else {
+        MPI_Recv(localArr.data(), partOnProcess,
+                 MPI_INT, 0, 1, MPI_COMM_WORLD, &status);
+    }
+    // counting the number of mergers
+    int mergeNumber = 1, pow = 2;
+    while (pow < size) {
+        pow *= 2;
+        mergeNumber++;
+    }
+    // sorting and mixing of local parts
+    localArr = sequentialRadixSort(localArr);
+    localArr = vectorShuffle(localArr);
+    // the Batcher merge
+    std::vector<int> resultArr, oddArr, evenArr;
+    int mergeCount = 2, shift = 1, sendCount, recvCount;
+    for (int i = 0; i < mergeNumber; i++) {
+        if ((rank % mergeCount == 0) && (rank + shift < size)) {
+            sendCount = localArr.size() / 2;
+            MPI_Sendrecv(&sendCount, 1, MPI_INT, rank + shift, 0,
+                &recvCount, 1, MPI_INT, rank + shift, 0, MPI_COMM_WORLD,
+                &status);
+            resultArr.resize(recvCount / 2 + recvCount % 2);
+            MPI_Sendrecv(&localArr[localArr.size() / 2 + localArr.size() % 2],
+                sendCount, MPI_INT, rank + shift, 0, &resultArr.front(),
+                recvCount / 2 + recvCount % 2, MPI_INT, rank + shift, 0,
+                MPI_COMM_WORLD, &status);
+            evenArr = EvenMerge(localArr, resultArr);
+            oddArr.resize(recvCount / 2 + localArr.size() / 2);
+            MPI_Recv(&oddArr.front(), recvCount / 2 + localArr.size() / 2,
+                MPI_INT, rank + shift, 0, MPI_COMM_WORLD, &status);
+            localArr = oddEvenMerge(evenArr, oddArr, evenArr.size(),
+                oddArr.size());
+        }
+        if (((rank - shift) % mergeCount == 0) && (rank - shift >= 0)) {
+            sendCount = localArr.size();
+            MPI_Sendrecv(&sendCount, 1, MPI_INT, rank - shift, 0,
+                &recvCount, 1, MPI_INT, rank - shift, 0, MPI_COMM_WORLD,
+                &status);
+            resultArr.resize(recvCount);
+            MPI_Sendrecv(localArr.data(), sendCount / 2 + sendCount % 2,
+                MPI_INT, rank - shift, 0, resultArr.data(), recvCount,
+                MPI_INT, rank - shift, 0, MPI_COMM_WORLD, &status);
+            oddArr = OddMerge(localArr, resultArr);
+            MPI_Send(oddArr.data(), oddArr.size(), MPI_INT, rank - shift, 0,
+                     MPI_COMM_WORLD);
+        }
+        mergeCount *= 2;
+        shift *= 2;
+    }
+    return localArr;
+}
+
+\end{lstlisting}
+\par main.cpp
+\begin{lstlisting}
+// Copyright 2021 Shmanalov Alexander
+#include <gtest/gtest.h>
+#include <vector>
+#include <iostream>
+#include "./radix_sort_with_batcher_merge.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(radixSortWithMergeBatcher, vectorSize10) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int size = 10;
+    std::vector<int> array = { 56, 12, 48, 32, 66, 11, 3, 27, 86, 112 };
+    std::vector<int> reference = { 3, 11, 12, 27, 32, 48, 56, 66, 86, 112 };
+    std::vector<int> parallelSort = parallelRadixSortMergeBatcher(array, size);
+    if (rank == 0) {
+        ASSERT_EQ(reference, parallelSort);
+    }
+}
+
+TEST(radixSortWithMergeBatcher, randomVectorSize77) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> array;
+    int size = 77;
+    double startTime, finalTime, seqTime, parTime;
+    if (rank == 0) {
+        array = generationRandomVector(size);
+        startTime = MPI_Wtime();
+    }
+    std::vector<int> parallelSort = parallelRadixSortMergeBatcher(array, size);
+    if (rank == 0) {
+        finalTime = MPI_Wtime();
+        parTime = finalTime - startTime;
+        std::cout << "P=" << parTime << std::endl;
+        startTime = MPI_Wtime();
+        std::vector<int> sequentialSort = sequentialRadixSort(array);
+        finalTime = MPI_Wtime();
+        seqTime = finalTime - startTime;
+        std::cout << "S=" << seqTime << std::endl;
+        std::cout << "Efficiency=" << seqTime / parTime << std::endl;
+        ASSERT_EQ(sequentialSort, parallelSort);
+    }
+}
+
+TEST(radixSortWithMergeBatcher, randomVectorSize808) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> array;
+    int size = 808;
+    double startTime, finalTime, seqTime, parTime;
+    if (rank == 0) {
+        array = generationRandomVector(size);
+        startTime = MPI_Wtime();
+    }
+    std::vector<int> parallelSort = parallelRadixSortMergeBatcher(array, size);
+    if (rank == 0) {
+        finalTime = MPI_Wtime();
+        parTime = finalTime - startTime;
+        std::cout << "P=" << parTime << std::endl;
+        startTime = MPI_Wtime();
+        std::vector<int> sequentialSort = sequentialRadixSort(array);
+        finalTime = MPI_Wtime();
+        seqTime = finalTime - startTime;
+        std::cout << "S=" << seqTime << std::endl;
+        std::cout << "Efficiency=" << seqTime / parTime << std::endl;
+        ASSERT_EQ(sequentialSort, parallelSort);
+    }
+}
+
+TEST(radixSortWithMergeBatcher, randomVectorSize1065) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> array;
+    int size = 1065;
+    double startTime, finalTime, seqTime, parTime;
+    if (rank == 0) {
+        array = generationRandomVector(size);
+        startTime = MPI_Wtime();
+    }
+    std::vector<int> parallelSort = parallelRadixSortMergeBatcher(array, size);
+    if (rank == 0) {
+        finalTime = MPI_Wtime();
+        parTime = finalTime - startTime;
+        std::cout << "P=" << parTime << std::endl;
+        startTime = MPI_Wtime();
+        std::vector<int> sequentialSort = sequentialRadixSort(array);
+        finalTime = MPI_Wtime();
+        seqTime = finalTime - startTime;
+        std::cout << "S=" << seqTime << std::endl;
+        std::cout << "Efficiency=" << seqTime / parTime << std::endl;
+        ASSERT_EQ(sequentialSort, parallelSort);
+    }
+}
+
+TEST(radixSortWithMergeBatcher, randomVectorSize10000) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int> array;
+    int size = 10000;
+    double startTime, finalTime, seqTime, parTime;
+    if (rank == 0) {
+        array = generationRandomVector(size);
+        startTime = MPI_Wtime();
+    }
+    std::vector<int> v1 = parallelRadixSortMergeBatcher(array, size);
+    if (rank == 0) {
+        finalTime = MPI_Wtime();
+        parTime = finalTime - startTime;
+        std::cout << "P=" << parTime << std::endl;
+        startTime = MPI_Wtime();
+        std::vector<int> v2 = sequentialRadixSort(array);
+        finalTime = MPI_Wtime();
+        seqTime = finalTime - startTime;
+        std::cout << "S=" << seqTime << std::endl;
+        std::cout << "Efficiency=" << seqTime / parTime << std::endl;
+        ASSERT_EQ(v1, v2);
+    }
+}
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
