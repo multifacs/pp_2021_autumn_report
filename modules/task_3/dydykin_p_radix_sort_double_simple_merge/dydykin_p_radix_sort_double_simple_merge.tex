@@ -1,0 +1,584 @@
+\documentclass[12pt]{report}
+\usepackage{lingmacros}
+\usepackage{tree-dvips}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[T2A]{fontenc}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{color}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{arrows.meta,arrows}
+
+\geometry{a4paper, top=2cm, bottom=3cm, left=2.5cm, right=1.5cm}
+
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm, parsep=0pt}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+        keywordstyle=\color{blue}\ttfamily,
+        stringstyle=\color{red}\ttfamily,
+        commentstyle=\color{green}\ttfamily,
+        morecomment=[l][\color{magenta}]{\#},
+        tabsize=4,
+        breaklines=true,
+        breakatwhitespace=true,
+        title=\lstname}
+
+\begin{document}
+\begin{titlepage}
+\begin{center}
+    Министерство образования и науки Российской Федерации \\
+    Федеральное государственное автономное образовательное учреждение высшего образования
+\end{center}
+\begin{center}
+    \textbf{Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского} \\
+\end{center}
+\begin{center}
+    \textbf{Институт информационных технологий, математики и механики}\\
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+    \textbf{\Large Отчет по лабораторной работе №3} \\
+\end{center}
+
+\begin{center}
+    \textbf{Тема:} \\
+    \textbf{\Large «Поразрядная сортировка для вещественных чисел (тип double) с простым слиянием»}
+\end{center}
+
+\vspace{4em}
+
+\begin{flushright}
+\begin{minipage}{0.55\textwidth}
+\begin{flushleft}
+
+\textbf{Выполнил:} \\
+студент группы 381908-1 \\
+Дыдыкин П.С. \\
+
+\textbf{Проверил:} \\
+доцент кафедры МОСТ, \\
+кандидат технических наук \\
+Сысоев А.В. \\
+\end{flushleft}
+\end{minipage}
+\end{flushright}
+
+
+\vspace{\fill}
+
+\begin{center}
+Нижний Новгород \\
+2021
+\end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\tableofcontents
+
+\newpage
+
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\parСортировка или упорядочивание данных имеет очевидное практическое применение во многих областях - решение систем линейных уравнений, упорядочивание графов, базы данных. В современном мире число таких задач и их важность неуклонно растут. Решение таких задач на одном компьютере становится невозможным, поэтому встает потребность в распараллеливании программы, повышении эффективности параллельного алгоритма относительно последовательного. В данной лабораторной работе этот вопрос решается для алгоритма поразрядной сортировки вещественных чисел с простым слиянием, о чём речь пойдет далее.  
+
+\newpage
+
+
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\parВ рамках данной лабораторной работы была поставлена задача сортировки вещественных чисел при помощи алгоритма поразрядной сортировки с применением простого слияния. Безусловно, для решения это задачи необходимо сперва изучить данный алгоритм, затем написать программный код, реализующий последовательную и параллельную обработку массива данных. Для проверки результатов и их корректности необходимо провести сравнение результирующих данных, а также провести сравнение эффективности путем замеров времени выполнения последовательного и параллельного алгоритма. Для выполнения поставленной задачи нам необходимо использовать программное обеспечение на основе технологии MPI и платформу тестирования программ Google Test.
+
+\newpage
+
+
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\parВ нашей задаче используются вещественные числа, которые имеют в своем составе положительные (все, что слева от разделительной точки) и отрицательные (все, что справа от разделительной точки) разряды. Именно на использовании этих характеристик сортируемых элементов строится наш алгоритм, который состоит из нескольких этапов. Во-первых, необходимо определить максимальное количество положительных и отрицательных разрядов числа, по которым будем проводить сортировку. Затем мы должны разбить исходный массив на десять подмассивов, каждый из которых соотвествует одной из 10 арабских цифр (0 - 9). Далее проводим сортировку полученного массива путем выполнения поразрядной сортировки для каждого из разрядов, начиная с наименьшего и заканчивая наибольшим.
+
+\newpage
+
+
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\parВ данной задаче мы используем следующую схему распараллеливания - каждый из процессов получается свою часть массива исходных данных и сортирует ее используя последовательный алгоритм сортировки, затем производится слияние всех частей массива в единый результирующий массив.
+\parНа этапе подготовки массив исходных данных равномерно делится между процессами, участвующими в работе программы, при наличии остатка - он делится равномерно между теми процессами, ранг которых меньше самого значения остатка.
+\parНа следующем этапе каждый процесс выполняет поразрядную сортировку полученного им подмассива. Таким образом получается, что каждый процесс обладает своим отсортированным массивом, теперь стоит задача слить все массивы в один. Для этого применяется простое слияние. Нулевой процесс выполняет слияние результирующего массива и массива, полученного от какого-либо процесса, результат слияния записывается также в результирующий массив. Предварительно в результирующем массиве уже лежит результат сортировки полученной части массива нулевым процессом. Само слияние производится путем последовательного сравнения элементов двух массивов и добавления на каждой из итераций наименьшего элемента в результирующий массив.
+
+
+\parВ результате такого слияния на нулевом процессе получаем результирующий отсортированный массив.
+
+\newpage
+
+
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+\parПрограммная реализация алгоритма поразрядной сортировки представляет собой набор следующих функций:
+\par 1. Функция генерации массива случайных данных (тип double)
+\begin{lstlisting}
+std::vector<double> Get_Random_Vector(int size);
+\end{lstlisting}
+\parОписание: реализует создание случайного массива данных в виде неотсортированного вектора вещественных чисел.
+
+\par 2. Функция простого слияния
+\begin{lstlisting}
+ std::vector<double> Merge(const std::vector<double>& vec_l, const std::vector<double>& vec_r);
+\end{lstlisting}
+\parОписание: реализует простое слияние двух упорядоченных частей массива вещественных чисел.
+
+\par 3. Функция поиска положительных разрядов числа
+\begin{lstlisting}
+int LeftOfThePoint(double number);
+\end{lstlisting}
+\parОписание: находит количество положительных разрядов вещественного числа.
+
+\par 4. Функция поиска отрицательных разрядов числа
+\begin{lstlisting}
+int RightOfThePoint(double number);
+\end{lstlisting}
+\parОписание: находит количество отрицательных разрядов вещественного числа.
+
+\par 5. Функция получения цифры из числа
+\begin{lstlisting}
+int GetDigit(double number, int radix);
+\end{lstlisting}
+\parОписание: находит и выдает цифру из заданного вещественного числа по заданному номеру разряда.
+
+\par 6. Функция поразрядной сортировки
+\begin{lstlisting}
+std::vector<double> RadixSort(const std::vector<double>& vect, int rad);
+\end{lstlisting}
+\parОписание: реализует сортировку массива вещественных чисел по заданному номеру разряда.
+
+\par 7. Функция последовательной поразрядной сортировки
+\begin{lstlisting}
+std::vector<double> Not_Parallel_Radix_Sort(const std::vector<double>& vect);
+\end{lstlisting}
+\parОписание: реализует последовательную поразрядную сортировку массива вещественных чисел.
+
+\par 8. Функция параллельной поразрядной сортировки с простым слиянием
+\begin{lstlisting}
+std::vector<double> Parallel_Radix_Sort(const std::vector<double>& vec);
+\end{lstlisting}
+\parОписание: реализует параллельный алгоритм поразрядной сортировки для массива вещественных чисел с использованием простого слияния.
+
+\newpage
+
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы я разработал тесты с помощью фрэймфорка Google Test. Сначала мы проверяем отдельно работу последовательного и параллельного алгоримтов, сравнивая полученные значения с предварительно отсортированным массивом. Затем проводим сравнение полученных результатов в результате работы последовательного и параллельного алгоритма на одном и том же массиве вещественных чисел. Кроме того, производятся замеры скорости выполнения данных алгоримтов для оценки их эффективности.
+
+\par Успешное прохождение всех тестов подтверждает корректность работы программы.
+\newpage
+
+
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+\parРезультаты эксперимента наиболее точно могут показать эффективность параллельного алгоритма поразрядной сортировки вещественных чисел перед последовательным. Исходные данные представлены в виде предварительно сгенерированного массива случаных вещественных числе из $10^{5}$ элементов, результаты эксперимента представлены в таблице 1:
+
+\begin{table}[!h]
+    \centering
+    \begin{tabular}{ | l | l | l | l |}
+    \hline
+    \scriptsize{Кол-во процессов} & \scriptsize{Последовательный алгоритм (сек.)} & \scriptsize{Параллельный алгоритм (сек.)} & \scriptsize{Ускорение}  \\ \hline
+    2   &   0.183629    &   0.103698    &   1.77081 \\ \hline
+    3   &   0.181075    &   0.066269    &   2.73242  \\ \hline
+    4   &   0.183130    &   0.052845    &   3.46542  \\ \hline
+    6   &   0.201251    &   0.049539    &   4.06248  \\ \hline
+    11   &   0.206116    &   0.032481    &   6.34574  \\ \hline
+    \end{tabular}
+    \caption{Результаты экспериментов}
+    \end{table}
+
+\parПо данным экспериментов можно отметить, что использование параллельной поразрядной
+сортировки для вещественных (типа double) чисел простым слиянием более эффективно, чем использование последовательного алгоритма поразрядной сортировки.
+
+\newpage
+
+
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+\parВ данной лабораторной работе я познакомился с поразрядной сортировкой для вещественных чисел, а также рассмотрел не только последовательный алгоритм, но и параллельный. Были написаны и проведены тесты, наглядно показывающие эффективность параллельного алгоритма перед последовательным, а также подтверждающие корректность выполнения программы.
+\parТаким образом, параллельный алгоритм лучше подойдет для решения сложных вычислительных задач с большим объемом данных, что доказывает его актуальность.
+\newpage
+
+
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{Sidnev}Сиднев А.А., Сысоев А.В., Мееров И.Б. Образовательный комплекс
+«Параллельные численные методы». Нижний Новгород, 2010.
+\bibitem{Yakobovski}Якобовский М.В. Параллельные алгоритмы сортировки больших объемов данных, 2004, 2008.
+\end{thebibliography}
+\newpage
+
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+В данном разделе приведен код, реализующий лабораторную работу №3 «Поразрядная сортировка для вещественных чисел (тип double) с простым слиянием».
+
+
+\begin{lstlisting}
+// radix_sort_double_simple_merge.h
+// Copyright 2021 Dydykin Pavel
+#ifndef MODULES_TASK_3_DYDYKIN_P_RADIX_SORT_DOUBLE_SIMPLE_MERGE_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+#define MODULES_TASK_3_DYDYKIN_P_RADIX_SORT_DOUBLE_SIMPLE_MERGE_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+#include <mpi.h>
+#include <iostream>
+#include <random>
+#include <list>
+#include <string>
+#include <sstream>
+#include <vector>
+
+std::vector<double> Get_Random_Vector(int size);
+int LeftOfThePoint(double num);
+int RightOfThePoint(double num);
+std::vector<double> Merge(const std::vector<double>& vec_left,
+    const std::vector<double>& vec_right);
+int GetDigit(double num, int radix);
+std::vector<double> RadixSort(const std::vector<double>& vect, int rad);
+std::vector<double> Not_Parallel_Radix_Sort(const std::vector<double>& vect);
+std::vector<double> Parallel_Radix_Sort(const std::vector<double>& vec);
+
+#endif  // MODULES_TASK_3_DYDYKIN_P_RADIX_SORT_DOUBLE_SIMPLE_MERGE_RADIX_SORT_DOUBLE_SIMPLE_MERGE_H_
+\end{lstlisting}
+
+
+\begin{lstlisting}
+// radix_sort_double_simple_merge.cpp
+// Copyright 2021 Dydykin Pavel
+#include "radix_sort_double_simple_merge.h"
+
+
+std::vector<double> Get_Random_Vector(int size) {
+    std::mt19937 gen(time(0));
+    std::uniform_real_distribution<> urd(0, 10000);
+    std::vector<double> vector(size);
+    for (int i = 0; i < static_cast<int>(vector.size()); i++) {
+        vector[i] = urd(gen);
+    }
+    return vector;
+}
+
+std::vector<double> Merge(const std::vector<double>& vec_l,
+    const std::vector<double>& vec_r) {
+    std::vector<double> result((vec_l.size() + vec_r.size()));
+
+    int vec_l_size = vec_l.size();
+    int vec_r_size = vec_r.size();
+
+    int i = 0, j = 0, k = 0;
+    while (i < vec_l_size
+        && j < vec_r_size) {
+        if (vec_l[i] < vec_r[j]) {
+            result[k] = vec_l[i];
+            i++;
+        } else {
+            result[k] = vec_r[j];
+            j++;
+        }
+        k++;
+    }
+    while (i < vec_l_size) {
+        result[k] = vec_l[i];
+        k++;
+        i++;
+    }
+    while (j < vec_r_size) {
+        result[k] = vec_r[j];
+        k++;
+        j++;
+    }
+    return result;
+}
+
+
+int LeftOfThePoint(double number) {
+    int radix = 0;
+    while (number > 1) {
+        number = number / 10;
+        radix++;
+    }
+    return radix;
+}
+
+int RightOfThePoint(double number) {
+    std::ostringstream strs;
+    strs << number;
+    std::string str = strs.str();
+    int size = str.size();
+    if (str.find('.')) {
+        int pos = str.find('.');
+        int value = size - pos - 1;
+        return value;
+    } else {
+        return 0;
+    }
+}
+
+int GetDigit(double number, int radix) {
+    if (radix > 0) {
+        double mask = pow(10, radix);
+        double tmp = number / mask;
+        return static_cast<int>(tmp) % 10;
+    }
+    return  static_cast<int>(number * pow(10, -radix)) % 10;
+}
+
+std::vector<double> RadixSort(const std::vector<double>& vect, int rad) {
+    std::vector<double> res;
+    std::vector <std::vector<double>> radix(10);
+
+    for (int i = 0; i < static_cast<int>(vect.size()); i++) {
+        radix[GetDigit(vect[i], rad)].push_back(vect[i]);
+    }
+    for (int i = 0; i < static_cast<int>(radix.size()); ++i)
+        for (int j = 0; j < static_cast<int>(radix[i].size()); ++j)
+            res.push_back(radix[i][j]);
+    return res;
+}
+
+std::vector<double> Not_Parallel_Radix_Sort(const std::vector<double>& vect) {
+    int size = vect.size();
+    int radixNegativeZero = 0;
+    int maxRadixNegativeZero = RightOfThePoint(vect[0]);
+    for (int i = 1; i < size; ++i) {
+        radixNegativeZero = RightOfThePoint(vect[i]);
+        if (radixNegativeZero > maxRadixNegativeZero) {
+            maxRadixNegativeZero = radixNegativeZero;
+        }
+    }
+    double max_elem = vect[0];
+    for (int i = 1; i < size; i++) {
+        if (vect[i] > max_elem) {
+            max_elem = vect[i];
+        }
+    }
+    int maxRadixPositiveZero = LeftOfThePoint(max_elem);
+    std::vector<double> result(vect);
+    for (int i = -maxRadixNegativeZero; i <= maxRadixPositiveZero; i++) {
+        result = RadixSort(result, i);
+    }
+    return result;
+}
+
+std::vector<double> Parallel_Radix_Sort(const std::vector<double>& vec) {
+    int ProcNum, ProcRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+    std::vector<double> result;
+
+    int size = vec.size();
+    std::vector<int> sendcounts(ProcNum);
+    std::vector<int> displs(ProcNum);
+
+    int count;
+
+    if ((ProcRank < size % ProcNum))
+        count = (size / ProcNum) + 1;
+    else
+        count = size / ProcNum;
+
+    std::vector<double> recvbuf(count);
+
+    if (recvbuf.size() == 0)
+        recvbuf.resize(1);
+
+    displs[0] = 0;
+
+    for (int i = 0; i < ProcNum; i++) {
+        if (i < (size % ProcNum))
+            sendcounts[i] = (size / ProcNum) + 1;
+        else
+            sendcounts[i] = size / ProcNum;
+        if (i > 0)
+            displs[i] = (displs[i - 1] + sendcounts[i - 1]);
+    }
+
+    MPI_Scatterv(vec.data(), sendcounts.data(), displs.data(),
+        MPI_DOUBLE, recvbuf.data(), count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    recvbuf = Not_Parallel_Radix_Sort(recvbuf);
+
+    if (ProcRank != 0) {
+        MPI_Send(recvbuf.data(), count, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+    } else {
+        result = recvbuf;
+        MPI_Status status;
+        for (int i = 1; i < ProcNum; i++) {
+            recvbuf.resize(sendcounts[i]);
+            MPI_Recv(recvbuf.data(), sendcounts[i], MPI_DOUBLE,
+                i, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            result = Merge(result, recvbuf);
+        }
+    }
+    return result;
+}
+
+\end{lstlisting}
+
+\begin{lstlisting}
+// main.cpp
+// Copyright 2021 Dydykin Pavel
+#include <gtest/gtest.h>
+#include <algorithm>
+#include "radix_sort_double_simple_merge.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Radix_Sort, Test1_Not_Parallel_Radix_Sort_Double) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+    if (ProcRank == 0) {
+        std::vector<double> v(50);
+        v = Get_Random_Vector(50);
+
+        std::vector<double> tmp = Not_Parallel_Radix_Sort(v);
+        std::sort(v.begin(), v.end());
+        ASSERT_EQ(tmp, v);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(Radix_Sort, Test2_Parallel_Radix_Sort_Double) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+    std::vector<double> v(50);
+    std::vector<double> tmp(50);
+
+    if (ProcRank == 0) {
+        tmp = Get_Random_Vector(50);
+        v = tmp;
+        std::sort(tmp.begin(), tmp.end());
+    }
+
+    std::vector<double> sort = Parallel_Radix_Sort(v);
+
+    if (ProcRank == 0) {
+        ASSERT_EQ(sort, tmp);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(Radix_Sort, Test3_Not_Parallel_VS_Parallel_With_Small_Vector) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+    std::vector<double> v(50);
+    std::vector<double> tmp(50);
+
+    if (ProcRank == 0) {
+        tmp = Get_Random_Vector(50);
+        v = tmp;
+        tmp = Not_Parallel_Radix_Sort(tmp);
+    }
+
+    std::vector<double> sort = Parallel_Radix_Sort(v);
+
+    if (ProcRank == 0) {
+        ASSERT_EQ(sort, tmp);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(Radix_Sort, Test4_Not_Parallel_VS_Parallel_With_Medium_Vector) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double t1, t2, t3, t4;
+
+    std::vector<double> v(70);
+    std::vector<double> not_p_vec, p_vec;
+
+    if (ProcRank == 0) {
+        v = Get_Random_Vector(70);
+        t1 = MPI_Wtime();
+        not_p_vec = Not_Parallel_Radix_Sort(v);
+        t2 = MPI_Wtime();
+    }
+
+    if (ProcRank == 0) {
+        t3 = MPI_Wtime();
+    }
+
+    p_vec = Parallel_Radix_Sort(v);
+
+    if (ProcRank == 0) {
+        t4 = MPI_Wtime();
+    }
+
+    if (ProcRank == 0) {
+        ASSERT_EQ(p_vec, not_p_vec);
+        std::cout << "NotParallel" << t2 - t1 << std::endl;
+        std::cout << "Parallel" << t4 - t3 << std::endl;
+        std::cout << "Effiency" << (t2 - t1) / (t4 - t3) << std::endl;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(Radix_Sort, Test5_Not_Parallel_VS_Parallel_With_Big_Vector_Effiency) {
+    int ProcRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+    double t1, t2, t3, t4;
+
+    std::vector<double> v(100);
+    std::vector<double> not_p_vec, p_vec;
+
+    if (ProcRank == 0) {
+        v = Get_Random_Vector(100);
+        t1 = MPI_Wtime();
+        not_p_vec = Not_Parallel_Radix_Sort(v);
+        t2 = MPI_Wtime();
+    }
+
+    if (ProcRank == 0) {
+        t3 = MPI_Wtime();
+    }
+
+    p_vec = Parallel_Radix_Sort(v);
+
+    if (ProcRank == 0) {
+        t4 = MPI_Wtime();
+    }
+
+    if (ProcRank == 0) {
+        ASSERT_EQ(p_vec, not_p_vec);
+        std::cout << "NotParallel" << t2 - t1 << std::endl;
+        std::cout << "Parallel" << t4 - t3 << std::endl;
+        std::cout << "Effiency" << (t2 - t1) / (t4 - t3) << std::endl;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
