@@ -1,0 +1,556 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdfpagemode=UseNone,colorlinks,allcolors=black]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Вычисление многомерных интегралов с использованием многошаговой схемы 
+(метод Симпсона)»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-2 \\ Шелепин Н.А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Задачи численного интегрирования - распространённая задача, имеющая множество видов решения. Под численным интегрированием понимают набор численных методов для нахождения значения определённого интеграла. Основная идея большинства методов численного интегрирования состоит в замене подынтегральной функции на более простую, интеграл от которой легко вычисляется аналитически. Есть методы численного интегрирования, позволяющие получить значение определенного интеграла с требуемой степенью точности. Одним из таких методов является метод Симпсона (его еще называют методом парабол).
+\par Формула Симпсона относится к приёмам численного интегрирования. Суть метода заключается в приближении подынтегральной функции на отрезке [a,b] интерполяционным многочленом второй степени, то есть приближение графика функции на отрезке параболой. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе требуется реализовать последовательный и параллельные алгоритмы вычисления многомерных интегралов методом Симпсона.
+\par Для оценки эффективности работы программы нужно произвести серию экспериментов, сравнивающих время выполнения последовательной и параллельной версии алгоритма, сравнить полученные результаты и сделать выводы.
+\par Параллельный алгоритм должен быть реализован при помощи технологии MPI.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par 
+Формулой Симпсона называется интеграл от интерполяционного многочлена второй степени на отрезке [a,b]
+$\displaystyle {\int_{a}^{b} f(x) \, dx }\approx {\int_{a}^{b} P_{2}(x) \, dx}=\frac  {b-a}{6}{\left(f(a)+4f\left({\frac  {a+b}{2}}\right)+f(b)\right)}$,
+\par где ${\displaystyle f(a)}$, ${\displaystyle f((a+b)/2)}$ и ${\displaystyle f(b)}$ — значения функции в соответствующих точках (на концах отрезка и в его середине).
+\par Для более точного вычисления интеграла, интервал [a,b] разбивают на N=2n элементарных отрезков одинаковой длины и применяют формулу Симпсона на составных отрезках. Каждый составной отрезок состоит из соседней пары элементарных отрезков. Значение исходного интеграла является суммой результатов интегрирования на составных отрезках:
+
+${\displaystyle \int _{a}^{b}f(x)\,dx\approx {\frac {h}{3}}\left[f(x_{0})+2\sum _{j=1}^{n/2-1}f(x_{2j})+4\sum _{j=1}^{n/2}f(x_{2j-1})+f(x_{N})\right],}$
+\par где ${\displaystyle h={\frac {b-a}{N}}}$ — величина шага, а ${\displaystyle x_{j}=a+jh}$ — чередующиеся границы и середины составных отрезков, на которых применяется формула Симпсона.
+ \par Для вычисления многмерных интегралов воспользуемся многошаговой схемой.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par 
+Основная идея реализации параллельного алгоритма состоит в параллельном вычислении локальных сумм по формуле Симпсона. Заданное количество интервалов распределяется между определенным количеством процессов. Каждый процесс
+вычисляет значения подынтегральной функции для определенного числа отрезков, суммирует эти значения и отправляет получившиеся локальные суммы в процесс с рангом 0.
+В 0-ом процессе все локальные суммы сначала складываются в глобальную сумму. После
+результат будет умножаться на шаги разбиения отрезков интегрирования. В итоге получится приближенное значение искомого интеграла.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла simpson.h и двух файлов исходного кода simpson.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного вычисления многомерных интегралов.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+double getSequentialSimpson(
+    const std::function<double(std::vector<double>)>& f,
+    const std::vector<std::pair<double, double>>& limits,
+    const std::vector<int>& n);
+\end{lstlisting}
+Входными параметрами функции является подынтегральная функция, массив пределов интегрирования, количество разбиений
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+double getParallelSimpson(const std::function<double(std::vector<double>)>& f,
+                          const std::vector<std::pair<double, double>>& limits,
+                          const std::vector<int>& n);
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода simpson.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью фрэймфорка Google Test была разработана серия тестов. В каждом из тестов вычисляется значение контрольного  интеграла заданной размерности при помощи последовательного и параллельного алгоритмов, подсчитывается время работы обоих алгоритмов, находится ускорение делением времени работы последовательного алгоритма на время работы параллельного. Результаты вычисления интеграла последовательным и параллельным способом сравниваются между собой в пределах погрешности, после чего можно сделать выводы об эффективности программы.
+
+\par Успешное прохождение разработанных мной тестов подтверждает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD FX-8320E, 3.5 ГГц, количество ядер: 8;
+\item Оперативная память: 16 ГБ DDR3, 1600  МГц;
+\item Операционная система: Windows 10 Pro.
+\end{itemize}
+
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте 4}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 1.02732        & 0.98748     & 1.04034       \\
+2        & 1.16693        & 0.570968     & 2.04377       \\
+3        & 1.00818        & 0.453759     & 2.22184       \\
+4        & 0.987807        & 0.351503     & 2.81023       \\
+6        & 1.11865        & 0.245628     & 4.55425       \\
+8        & 0.979151        & 0.204774     & 4.78162	  \\
+16        & 0.965454        & 0.243522     & 3.96454	  \\
+\hline
+\end{tabular}
+\end{table}
+По данным, полученным в результате экспериментов, можно сделать вывод о том,
+что параллельный алгоритм работает быстрее, чем последовательный в 4.78 раз.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе выполнения данной лабораторной работы были разработаны последовательный и параллельный алгоритмы вычисления многомерных интегралов методом Симпсона. После выполенения серии экспериментов можно сделать вывод о том, что параллельный алгоритм работает быстрее последовательного, что доказывает эффективность параллельного алгоритма по сравнению с последовательным.
+\par Были разработаны и доведены до успешного выполнения тесты,  с использованием GoogleC++ Testing Framework, которые  подтвердиди корректность выполнения  программы.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Гергель В. П. Теория и практика параллельных вычислений. – 2007.
+\itemГергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+simpson.h
+\begin{lstlisting}
+// Copyright 2021 Shelepin Nikita
+#ifndef MODULES_TASK_3_SHELEPIN_N_SIMPSON_SIMPSON_H_
+#define MODULES_TASK_3_SHELEPIN_N_SIMPSON_SIMPSON_H_
+
+#include <algorithm>
+#include <functional>
+#include <utility>
+#include <vector>
+
+double getSequentialSimpson(
+    const std::function<double(std::vector<double>)>& f,
+    const std::vector<std::pair<double, double>>& limits,
+    const std::vector<int>& n);
+
+double getParallelSimpson(const std::function<double(std::vector<double>)>& f,
+                          const std::vector<std::pair<double, double>>& limits,
+                          const std::vector<int>& n);
+
+#endif  // MODULES_TASK_3_SHELEPIN_N_SIMPSON_SIMPSON_H_
+\end{lstlisting}
+
+simpson.cpp
+\begin{lstlisting}
+// Copyright 2021 Shelepin Nikita
+#include "../../../modules/task_3/shelepin_n_simpson/simpson.h"
+
+#include <mpi.h>
+#include <cmath>
+
+double getSequentialSimpson(
+    const std::function<double(std::vector<double>)>& f,
+    const std::vector<std::pair<double, double>>& limits,
+    const std::vector<int>& n) {
+  int dim = n.size();
+  std::vector<double> h(dim);
+  int64_t counter = 1;
+  for (int i = 0; i < dim; ++i) {
+    h[i] = (limits[i].second - limits[i].first) / n[i];
+    counter *= n[i];
+  }
+  double result = 0.0;
+  for (int i = 0; i < counter; ++i) {
+    std::vector<std::vector<double>> params(dim);
+    int temp = i;
+    for (int j = 0; j < dim; ++j) {
+      params[j].push_back(limits[j].first + temp % n[j] * h[j]);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j]);
+      temp /= n[j];
+    }
+    std::vector<double> point;
+    for (int i = 0; i < pow(6, dim); ++i) {
+      int temp = i;
+      for (int j = 0; j < dim; ++j) {
+        point.push_back(params[j][temp % 6]);
+        temp /= 6;
+      }
+      result += f(point);
+      point.clear();
+    }
+    params.clear();
+  }
+  for (int i = 0; i < dim; ++i) {
+    result *= h[i] / 6.0;
+  }
+  return result;
+}
+
+double getParallelSimpson(const std::function<double(std::vector<double>)>& f,
+                          const std::vector<std::pair<double, double>>& limits,
+                          const std::vector<int>& n) {
+  int size, rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  int dim = limits.size();
+  std::vector<double> h(dim);
+
+  int total_count;
+  if (rank == 0) {
+    total_count = 1;
+    for (int i = 0; i < dim; ++i) {
+      h[i] = (limits[i].second - limits[i].first) / n[i];
+      total_count *= n[i];
+    }
+  }
+  MPI_Bcast(&total_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  MPI_Bcast(h.data(), dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+  int rem = total_count % size;
+  int delta = total_count / size + (rank < rem ? 1 : 0);
+  int displ = 0;
+  if (rank < rem) {
+    displ = rank * delta;
+  } else {
+    displ = rem * (delta + 1) + (rank - rem) * delta;
+  }
+
+  double local_result = 0.0;
+  for (int i = displ; i < delta + displ; ++i) {
+    std::vector<std::vector<double>> params(dim);
+    int temp = i;
+    for (int j = 0; j < dim; ++j) {
+      params[j].push_back(limits[j].first + temp % n[j] * h[j]);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j] / 2);
+      params[j].push_back(limits[j].first + temp % n[j] * h[j] + h[j]);
+      temp /= n[j];
+    }
+
+    std::vector<double> point;
+    for (int i = 0; i < pow(6, dim); ++i) {
+      int temp = i;
+      for (int j = 0; j < dim; ++j) {
+        point.push_back(params[j][temp % 6]);
+        temp /= 6;
+      }
+      local_result += f(point);
+      point.clear();
+    }
+    params.clear();
+  }
+
+  double global_result = 0.0;
+  MPI_Reduce(&local_result, &global_result, 1, MPI_DOUBLE, MPI_SUM, 0,
+             MPI_COMM_WORLD);
+
+  if (rank == 0) {
+    for (int i = 0; i < dim; ++i) {
+      global_result *= h[i] / 6.0;
+    }
+  }
+  return global_result;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Shelepin Nikita
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <gtest-mpi-listener.hpp>
+
+#include "./simpson.h"
+
+TEST(SIMPSON_METHOD, TEST_FUNCTION_1) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    printf("  f(x,y) = x * x - 2 * y\n");
+    fflush(stdout);
+  }
+
+  const std::function<double(std::vector<double>)> f =
+      [](std::vector<double> vec) {
+        double x = vec[0];
+        double y = vec[1];
+        return x * x - 2 * y;
+      };
+
+  std::vector<std::pair<double, double>> limits({{4, 10}, {1, 2}});
+  std::vector<int> n({100, 100});
+
+  double start = MPI_Wtime();
+  double result = getParallelSimpson(f, limits, n);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    start = MPI_Wtime();
+    double reference_result = getSequentialSimpson(f, limits, n);
+    end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "  Sequential result: " << reference_result << std::endl;
+    std::cout << "  Sequential time: " << stime << std::endl;
+    std::cout << "  Parallel result: " << result << std::endl;
+    std::cout << "  Parallel time: " << ptime << std::endl;
+    std::cout << "  Speedup: " << stime / ptime << std::endl;
+
+    double error = 0.0001;
+    ASSERT_NEAR(result, reference_result, error);
+  }
+}
+
+TEST(SIMPSON_METHOD, TEST_FUNCTION_2) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    printf("  f(x,y,z) = log10(2 * x * x) + sqrt(z) + 5 * y\n");
+    fflush(stdout);
+  }
+
+  const std::function<double(std::vector<double>)> f =
+      [](std::vector<double> vec) {
+        double x = vec[0];
+        double y = vec[1];
+        double z = vec[2];
+        return log10(2 * x * x) + sqrt(z) + 5 * y;
+      };
+
+  std::vector<std::pair<double, double>> limits({{4, 10}, {1, 2}, {2, 5}});
+  std::vector<int> n({10, 10, 10});
+
+  double result = getParallelSimpson(f, limits, n);
+
+  if (rank == 0) {
+    double reference_result = getSequentialSimpson(f, limits, n);
+    double error = 0.0001;
+    ASSERT_NEAR(result, reference_result, error);
+  }
+}
+
+TEST(SIMPSON_METHOD, TEST_FUNCTION_3) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    printf("  f(x,y,z,t) = x + y + z + t\n");
+    fflush(stdout);
+  }
+
+  const std::function<double(std::vector<double>)> f =
+      [](std::vector<double> vec) {
+        double x = vec[0];
+        double y = vec[1];
+        double z = vec[2];
+        return x * y * z;
+      };
+
+  std::vector<std::pair<double, double>> limits({{4, 10}, {1, 2}, {4, 5}});
+  std::vector<int> n({10, 5, 5});
+
+  double result = getParallelSimpson(f, limits, n);
+
+  if (rank == 0) {
+    double reference_result = getSequentialSimpson(f, limits, n);
+    double error = 0.0001;
+    ASSERT_NEAR(result, reference_result, error);
+  }
+}
+
+TEST(SIMPSON_METHOD, TEST_FUNCTION_4) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    printf("  f(x,y,z) = exp(x) - sqrt(10) * 5 * sin(y) + cos(-2 * z * z)\n");
+    fflush(stdout);
+  }
+
+  const std::function<double(std::vector<double>)> f =
+      [](std::vector<double> vec) {
+        double x = vec[0];
+        double y = vec[1];
+        double z = vec[2];
+        return exp(x) - sqrt(10) * 5 * sin(y) + cos(-2 * z * z);
+      };
+
+  std::vector<std::pair<double, double>> limits({{4, 10}, {1, 2}, {0, 5}});
+  std::vector<int> n({10, 5, 5});
+
+  double result = getParallelSimpson(f, limits, n);
+
+  if (rank == 0) {
+    double reference_result = getSequentialSimpson(f, limits, n);
+    double error = 0.0001;
+    ASSERT_NEAR(result, reference_result, error);
+  }
+}
+
+TEST(SIMPSON_METHOD, TEST_FUNCTION_5) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (rank == 0) {
+    printf("  f(x,y,z,t) = cos(5 * x) + exp(y) + 2.9 * sin(z) - t * t\n");
+    fflush(stdout);
+  }
+
+  const std::function<double(std::vector<double>)> f =
+      [](std::vector<double> vec) {
+        double x = vec[0];
+        double y = vec[1];
+        double z = vec[2];
+        double t = vec[3];
+        return cos(5 * x) + exp(y) + 2.9 * sin(z) - t * t;
+      };
+
+  std::vector<std::pair<double, double>> limits(
+      {{4, 10}, {1, 2}, {1, 5}, {6, 10}});
+  std::vector<int> n({5, 5, 3, 2});
+
+  double start = MPI_Wtime();
+  double result = getParallelSimpson(f, limits, n);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    start = MPI_Wtime();
+    double reference_result = getSequentialSimpson(f, limits, n);
+    end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << "  Sequential result: " << reference_result << std::endl;
+    std::cout << "  Sequential time: " << stime << std::endl;
+    std::cout << "  Parallel result: " << result << std::endl;
+    std::cout << "  Parallel time: " << ptime << std::endl;
+    std::cout << "  Speedup: " << stime / ptime << std::endl;
+
+    double error = 0.0001;
+    ASSERT_NEAR(result, reference_result, error);
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
