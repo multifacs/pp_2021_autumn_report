@@ -1,0 +1,528 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поиск кратчайших путей из одной вершины (алгоритм Дейкстры)»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Ершов А. В.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Оглавление
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par В классических графах все рёбра считаются равноценными и длина пути соответствует количеству рёбер, которые он содержит. Однако часто в задаче каждому ребру соответствует некоторый параметр - длина ребра или стоимость прохождения по нему. В терминологии графов такой параметр называется весом ребра, а граф, содержащий взвешенные рёбра, взвешенным. Классический алгоритм для поиска кратчайших путей во взвешенном графе - алгоритм Дейкстры (по имени автора Эдгара Дейкстры). Он позволяет найти кратчайший путь от одной вершины графа до всех остальных за $O(MlogN)$ ($N,M$ - количество вершин и рёбер соответственно). Важной особенностью является тот факт, что алгоритм работает только для графов без рёбер отрицательного веса.
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной работе требуется реализовать последовательный и параллельный алгоритм поиска всех кратчайших путей в графе, заданном матрицей весов (за основу следует взять алгоритм Дейкстры). А также провести эксперименты для сравнения времени работы двух алгоритмов, подтверждения их корректности. Сделать выводы об эффективности приведенных реализаций.
+\par В качестве технологии, для создания параллельной программы и проведения тестирования следует использовать Message Passing Interface (MPI) и библиотеку Google Test.
+
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Каждой вершине приписывается вес – это вес пути от начальной вершины до данной. Также каждая вершина может быть выделена. Если вершина выделена, то путь от нее до начальной вершины кратчайший, если нет – то временный. Обходя граф, алгоритм считает для каждой вершины маршрут, и, если он оказывается кратчайшим, выделяет вершину. Весом данной вершины становится вес пути. Для всех соседей данной вершины алгоритм также рассчитывает вес, при этом ни при каких условиях не выделяя их. Алгоритм заканчивает свою работу, дойдя до конечной вершины, и весом кратчайшего пути становится вес конечной вершины.
+\par Пошаговый алгоритм:
+\begin{enumerate}
+\item Всем вершинам, за исключением первой, присваивается вес равный бесконечности, а первой вершине – 0.
+\item Все вершины не выделены.
+\item Первая вершина объявляется текущей.
+\item Вес всех невыделенных вершин пересчитывается по формуле: вес невыделенной вершины есть минимальное число из старого веса данной вершины, суммы веса текущей вершины и веса ребра, соединяющего текущую вершину с невыделенной.
+\item Среди невыделенных вершин ищется вершина с минимальным весом. Если таковая не найдена, то есть вес всех вершин равен бесконечности, то маршрут не существует. Следовательно, выход. Иначе, текущей становится найденная вершина. Она же выделяется.
+\item Если текущей вершиной оказывается конечная, то путь найден, и его вес есть вес конечной вершины.
+\item Переход на шаг 4.
+\item Если все кратчайшие пути найдены, то меняем начальную вершину.
+\item Переход на шаг 1.
+\end{enumerate}
+
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par На вход параллельного алгоритма подается количество вершин графа и матрица весов. Каждый процесс обрабатывает $N=\frac{\text{общее количество вершин}}{\text{количество процессов}}$ вершин. Для этого в цикле от $0$ до $N-1$ для каждого процесса запускается алгоритм Дейкстры. Полученный на каждой итерации результат рассылается процессу с $rank=0$. Если $(N*количество \ процессов<общее \ количество \ вершин)$, то оставшиеся вершины обрабатываются процессом с $rank=0$.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+\par Программа состоит из заголовочного файла deicstra\_mpi.h и двух файлов исходного кода deicstra\_mpi.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного алгоритма поиска кратчайших путей из одной вершины, а также функция реализующая алгоритм Дейкстры.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+std::vector<int> getSequentialDeicstra(
+    const std::vector<std::vector<int>>& graf, const size_t count);
+\end{lstlisting}
+\par Первый параметр функции является двумерным вектором, представляющим собой матрицу весов, которой задан исследуемый граф, второй - количество вершин исследуемого графа.
+\par Функция для параллельного алгоритма:
+\begin{lstlisting}
+std::vector<int> getParallelDeicstra(const std::vector<std::vector<int>>& graf,
+                                     const size_t count);
+\end{lstlisting}
+\par Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par Функция реализующая алгоритм Дейкстры:
+\begin{lstlisting}
+std::vector<int> getDeicstra(const std::vector<std::vector<int>>& graf,
+                             const size_t count, const size_t top);
+\end{lstlisting}
+\par Первые два аргумента полностью совпадают с функциями приведенными выше, третий - индекс вершины, от которой будут искаться кратчайшие пути.
+\par Помимо этого, есть еще функция позволяющая генерировать случайные матрицы весов. Она нужна для тестирования корректности работы программы.
+\begin{lstlisting}
+std::vector<std::vector<int>> getRandomVector(const size_t count);
+\end{lstlisting}
+\par В файле исходного кода deicstra\_mpi.cpp содержатся реализации функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности работы программы.
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+\par Проверку корректности работы программы обеспечивают 5 тестовых функций реализованных с помощью библиотеки "Google Test".
+\par Первая проверяет правильность работы работы алгоритма Дейкстры на матрице весов:
+\par
+$\begin{pmatrix}
+  0 & 7 & 9 & 0 & 0 & 14\\
+  7 & 0 & 10 & 15 & 0 & 0\\
+  9 & 10 & 0 & 11 & 0 & 2\\
+  0 & 15 & 11 & 0 & 6 & 0\\
+  0 & 0 & 0 & 6 & 0 & 9\\
+  14 & 0 & 2 & 0 & 9 & 0
+\end{pmatrix}$
+\par Алгоритм должен получить значение:
+$\begin{pmatrix}
+ 0 & 7 & 9 & 20 & 20 & 11
+\end{pmatrix}$
+\par Вторая проверяет работу последовательного алгоритма на той же матрице весов:
+\par
+$\begin{pmatrix}
+  0 & 7 & 9 & 0 & 0 & 14\\
+  7 & 0 & 10 & 15 & 0 & 0\\
+  9 & 10 & 0 & 11 & 0 & 2\\
+  0 & 15 & 11 & 0 & 6 & 0\\
+  0 & 0 & 0 & 6 & 0 & 9\\
+  14 & 0 & 2 & 0 & 9 & 0
+\end{pmatrix}$
+\par Функция должна получить следующий результат:
+\par
+$\begin{pmatrix}
+ 0 & 7 & 9 & 20 & 20 & 11\\
+ 7 & 0 &  10 & 15 & 21 & 12\\
+ 9 & 10 & 0 & 11 & 11 & 2\\
+ 20 & 15 & 11 & 0 & 6 & 13\\
+ 20 & 21 & 11 & 6 & 0 & 9\\
+ 11 & 12 & 2 & 13 & 9 & 0
+\end{pmatrix}$
+\par Третья проверяет работу параллельного алгоритма. Данные полностью совпадают с предыдущим случаем.
+\par Четвертая и пятая напрямую сравнивают результаты последовательного и параллельного алгоритма с разным числом вершин. Это число равно $1000$ и $100$ соответственно.
+\par Успешное прохождение всех тестов можно считать подтверждением корректности работы программы.
+
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 3600X;
+\item Оперативная память: 16 ГБ (DDR4), 3000 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Замеры времени работы алгоритмов проводились на тестовой функции 4 (граф с 1000 вершин). Тестирование проводилось в режиме Release-x64.
+
+\par Результаты экспериментов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тестовой функции 4}
+\centering
+\begin{tabular}{| p{2cm} | p{2cm} | p{2cm} | p{2cm} |}
+\hline
+Number of processes & Sequential algorithm runtime (in seconds) & Parallel algorithm runtime (in seconds) & Acceleration  \\[5pt]
+\hline
+1        &1.99386         &1.99386      &0        \\
+2        &1.97811         &1.00417      &1.97        \\
+3        &1.98182         &0.688089      &2.88        \\
+4        &1.98562         &0.519022      &3.82        \\
+5        &1.98204         &0.502491      &3.94       \\
+6        &2.00994         &0.46833      &4.27        \\
+7        &1.9878         &0.460744      &3.27        \\
+9        &1.9838         &0.383791      &5.17 	    \\
+12        &1.98522         &0.362292      &5.48 	  \\
+20        &1.9886         &0.181172      &10.97 	  \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+\par Из данных, полученных в результате экспериментов (см. Таблицу 1), можно сделать вывод, что параллельный алгоритм работает быстрее, чем последовательный. При этом очевиден тот факт, что ускорение достигается наиболее эффективно в том случае, когда число вершин делится без остатка на число процессов. Это особенность реализации (оставшиеся вершины обрабатываются процессом с рангом 0). Средний прирост производительности равен $\frac{\text{количество  процессов}}{\text{2}}$ раз, что полностью соответствует ожидаемому результату.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+\par Таким образом, в рамках данной лабораторной работы были разработаны и протестированы последовательный и параллельный алгоритмы нахождения кратчайших путей в графе, основанные на алгоритме Дейкстры. Проведенные тесты показали корректность работы программы, а замеры времени работы программ доказали эффективность параллельного алгоритма по сравнению с последовательным.
+
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Habr - Электронный ресурс. URL: https://habr.com/ru/post/111361/
+\item Википедия - Электронный ресурс. URL: https://ru.wikipedia.org/wiki/%D0%90%D0%BB%D0%B3%D0%BE%D1%80%D0%B8%D1%82%D0%BC_%D0%94%D0%B5%D0%B9%D0%BA%D1%81%D1%82%D1%80%D1%8B
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+deicstra\_mpi.h
+\begin{lstlisting}
+// Copyright 2021 Ershov Aleksey
+#ifndef MODULES_TASK_3_ERSHOV_A_DEICSTRA_ALGORITHM_DEICSTRA_MPI_H_
+#define MODULES_TASK_3_ERSHOV_A_DEICSTRA_ALGORITHM_DEICSTRA_MPI_H_
+
+#include <string>
+#include <vector>
+
+std::vector<std::vector<int>> getRandomVector(const size_t count);
+
+std::vector<int> getDeicstra(const std::vector<std::vector<int>>& graf,
+                             const size_t count, const size_t top);
+std::vector<int> getParallelDeicstra(const std::vector<std::vector<int>>& graf,
+                                     const size_t count);
+std::vector<int> getSequentialDeicstra(
+    const std::vector<std::vector<int>>& graf, const size_t count);
+
+#endif  // MODULES_TASK_3_ERSHOV_A_DEICSTRA_ALGORITHM_DEICSTRA_MPI_H_
+
+\end{lstlisting}
+deicstra\_mpi.cpp
+\begin{lstlisting}
+// Copyright 2021 Ershov Aleksey
+#include "./deicstra_mpi.h"
+
+#include <mpi.h>
+
+#include <algorithm>
+#include <random>
+#include <vector>
+
+std::vector<std::vector<int>> getRandomVector(const size_t count) {
+  std::vector<std::vector<int>> graf(count, std::vector<int>(count));
+  std::random_device dev;
+  std::mt19937 gen(0);
+  for (size_t i = 0; i < count; ++i) {
+    graf[i][i] = 0;
+    for (size_t j = i + 1; j < count; ++j) {
+      graf[i][j] = gen() % 100;
+      graf[j][i] = graf[i][j];
+    }
+  }
+  return graf;
+}
+
+std::vector<int> getDeicstra(const std::vector<std::vector<int>>& graf,
+                             const size_t count, const size_t top) {
+  std::vector<bool> visitedTops(count);
+  std::vector<int> dist(count, 10000);
+  dist[top] = 0;
+  int min_dist = 0;
+  int min_vertex = top;
+
+  while (min_dist < 10000) {
+    size_t i = min_vertex;
+    visitedTops[i] = true;
+    for (size_t j = 0; j < count; ++j)
+      if ((dist[i] + graf[i][j] < dist[j]) && (graf[i][j] != 0))
+        dist[j] = dist[i] + graf[i][j];
+    min_dist = 10000;
+    for (size_t j = 0; j < count; ++j)
+      if (!visitedTops[j] && dist[j] < min_dist) {
+        min_dist = dist[j];
+        min_vertex = j;
+      }
+  }
+
+  return dist;
+}
+
+std::vector<int> getParallelDeicstra(const std::vector<std::vector<int>>& graf,
+                                     const size_t count) {
+  int rank;
+  int size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  size_t part = count / size;
+  std::vector<int> tmp_result(count * part, 0);
+  std::vector<int> result(count * count, 0);
+
+  for (size_t i = 0; i < part; ++i) {
+    auto tmp = getDeicstra(graf, count, (rank * part) + i);
+    for (size_t k = 0, j = count * i; k < count; ++j, ++k) {
+      tmp_result[j] = tmp[k];
+    }
+  }
+  MPI_Gather(tmp_result.data(), (count * part), MPI_INT, result.data(),
+             (count * part), MPI_INT, 0, MPI_COMM_WORLD);
+
+  if (rank == 0) {
+    for (size_t i = size * part; i < count; ++i) {
+      auto tmp = getDeicstra(graf, count, i);
+      for (size_t k = 0, j = count * i; k < count; ++j, ++k) {
+        result[j] = tmp[k];
+      }
+    }
+  }
+
+  return result;
+}
+
+std::vector<int> getSequentialDeicstra(
+    const std::vector<std::vector<int>>& graf, const size_t count) {
+  size_t top = 0;
+  std::vector<int> result(count * count, 0);
+  for (top = 0; top < count; ++top) {
+    auto tmp = getDeicstra(graf, count, top);
+    for (size_t i = 0; i < count; ++i) {
+      result[top * count + i] = tmp[i];
+    }
+  }
+
+  return result;
+}
+
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Ershov Aleksey
+#include <gtest/gtest.h>
+
+#include <vector>
+#include <time.h>
+#include "./deicstra_mpi.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Parallel_Deicstra_MPI, Test_Deicstra) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  const size_t count = 6;
+  std::vector<int> result;
+  std::vector<int> trueResult;
+  std::vector<std::vector<int>> graf;
+
+  if (rank == 0) {
+    graf = {{0, 7, 9, 0, 0, 14},  {7, 0, 10, 15, 0, 0}, {9, 10, 0, 11, 0, 2},
+            {0, 15, 11, 0, 6, 0}, {0, 0, 0, 6, 0, 9},   {14, 0, 2, 0, 9, 0}};
+
+    result = getDeicstra(graf, count, 0);
+    trueResult = {0, 7, 9, 20, 20, 11};
+
+    for (size_t i = 0; i < count; ++i) {
+      ASSERT_EQ(result[i], trueResult[i]);
+    }
+  }
+}
+
+TEST(Parallel_Deicstra_MPI, Test_Sequential_Deicstra) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  const size_t count = 6;
+  std::vector<int> result;
+  std::vector<int> trueResult;
+  std::vector<std::vector<int>> graf;
+
+  if (rank == 0) {
+    graf = {{0, 7, 9, 0, 0, 14},  {7, 0, 10, 15, 0, 0}, {9, 10, 0, 11, 0, 2},
+            {0, 15, 11, 0, 6, 0}, {0, 0, 0, 6, 0, 9},   {14, 0, 2, 0, 9, 0}};
+
+    result = getSequentialDeicstra(graf, count);
+
+    trueResult = {0,  7,  9,  20, 20, 11, 7,  0,  10, 15, 21, 12,
+                  9,  10, 0,  11, 11, 2,  20, 15, 11, 0,  6,  13,
+                  20, 21, 11, 6,  0,  9,  11, 12, 2,  13, 9,  0};
+
+    for (size_t i = 0; i < count * count; ++i) {
+      ASSERT_EQ(result[i], trueResult[i]);
+    }
+  }
+}
+
+TEST(Parallel_Deicstra_MPI, Test_Parallel_Deicstra) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  const size_t count = 6;
+  std::vector<int> result;
+  std::vector<int> trueResult;
+  std::vector<std::vector<int>> graf;
+  graf = {{0, 7, 9, 0, 0, 14},  {7, 0, 10, 15, 0, 0}, {9, 10, 0, 11, 0, 2},
+          {0, 15, 11, 0, 6, 0}, {0, 0, 0, 6, 0, 9},   {14, 0, 2, 0, 9, 0}};
+
+  result = getParallelDeicstra(graf, count);
+
+  if (rank == 0) {
+    trueResult = {0,  7,  9,  20, 20, 11, 7,  0,  10, 15, 21, 12,
+                  9,  10, 0,  11, 11, 2,  20, 15, 11, 0,  6,  13,
+                  20, 21, 11, 6,  0,  9,  11, 12, 2,  13, 9,  0};
+
+    for (size_t i = 0; i < count * count; ++i) {
+      ASSERT_EQ(result[i], trueResult[i]);
+    }
+  }
+}
+
+TEST(Parallel_Deicstra_MPI, Test_Random_Graf_Parallel_Deicstra) {
+  int rank;
+  int size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  const size_t count = 1000;
+  std::vector<int> result;
+  std::vector<int> trueResult;
+  std::vector<std::vector<int>> graf;
+  graf = getRandomVector(count);
+  double start = MPI_Wtime();
+  result = getParallelDeicstra(graf, count);
+  double end = MPI_Wtime();
+  std::cout << "Time of parallel work: " << (end - start) << " sec " << std::endl;
+  double start2, end2;
+  if (rank == 0) {
+    start2 = MPI_Wtime();
+    trueResult = getSequentialDeicstra(graf, count);
+    end2 = MPI_Wtime();
+    std::cout << "Time of sequential work: " << (end2 - start2) << " sec " << std::endl;
+    for (size_t i = 0; i < count * count; ++i) {
+      ASSERT_EQ(result[i], trueResult[i]);
+    }
+  }
+}
+
+TEST(Parallel_Deicstra_MPI, Test_Random_Normal_Graf_Parallel_Deicstra) {
+  int rank;
+  int size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  const size_t count = 100;
+  std::vector<int> result;
+  std::vector<int> trueResult;
+  std::vector<std::vector<int>> graf;
+  graf = getRandomVector(count);
+
+  result = getParallelDeicstra(graf, count);
+
+  if (rank == 0) {
+    trueResult = getSequentialDeicstra(graf, count);
+    for (size_t i = 0; i < count * count; ++i) {
+      ASSERT_EQ(result[i], trueResult[i]);
+    }
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
