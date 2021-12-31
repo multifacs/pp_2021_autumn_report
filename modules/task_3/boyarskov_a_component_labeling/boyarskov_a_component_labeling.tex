@@ -1,0 +1,712 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdfpagemode=UseNone,colorlinks,allcolors=black]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\LargeМаркировка компонент на бинарном изображении} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}Выполнил: \\ студент группы 381906-2 \\ Боярсков А. А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}Проверил:\\ кандидат технических наук, \\ доцент кафедры МОСТ \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород 
+\\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Алгоритм маркировки связных компонент бинарного изображения заключается в выделении всех связных компонент и присвоением каждой
+из них своей метки (идентификатора). Эти метки отличают компоненты
+между собой. Связными компонентами являются такие области
+изображения, в которых можно найти путь между двумя любыми
+пикселями, то есть они имеют связь между собой.
+\par Маркировка и поиск связных компонент в бинарных изображениях является одним из базовых алгоритмов обработки и анализа изображений. Этот алгоритм может быть использован в машинном зрении для поиска и подсчета единых структур в изображении, с последующих их анализом.
+\par Задача выделения связных компонент на сегодняшний день является
+фундаментальной задачей обработки изображений. Отметим, что для многих приложений данная операция
+является наиболее времязатратной, т. е. критической. Из-за этого выделение связных компонент до сих пор остается
+активной областью исследований. 
+
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par Нам требуется реализовать программу с последовательным и параллельным алгоритмами маркировки компонент на бинарном изображении. Для реализации параллельного алгоритма нужно использовать технологию MPI.
+\par Чтобы оценить эффективность работы программы нужно провести серию тестов, которые сравнивают время выполнения последовательной и параллельной версии алгоритма, изучить полученные результаты и сделать выводы.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Для выполнения нашей задачи мы используем алгоритм маркировки, который выполняется за два прохода. Этот алгоритм имеет систему разделённых множеств. Алгоритм основывается на том, чтобы пройтись по всему изображению целиком только дважды. Именно поэтому наш алгоритм разбиваем на две части - два прохода.  Рассмотрим их:
+\par Примечание: Значение пикселя (x, y) может принимать значения либо "0", либо "1". Используется 4-связность. В map и в результирующем изображении изначально стоят по умолчанию все нули. Пусть A будет меткой левого пикселя в map, а B - верхнего пикселя.
+
+			 \par Рассмотрим первый проход:
+Алгоритм работает с CPM, поэтому требуется создать N синглетонов по 1 на пиксель. Проходимся в цикле по всем пикселям, для которых значение не нулевое и рассматриваем значения левого и верхнего пикселей. Дальше может быть один из следующих случаев:
+\begin{enumerate}
+\item Если A = 0 и B = 0, то выбранный пиксель принадлежит не помеченной компоненте, поэтому мы отмечаем данный пиксель в карте временных меток значением равным индексу и инкрементируем число компонент, которые нашли.
+\item Если A = 0, а B не нулевое, то считаем, что выбранный пиксель принадлежит уже помеченной компоненте, в которую входит верхний пиксель, поэтому в карте временных меток текущему пикселю также ставим значение B, которое соответствует значению в карте временных меток верхнего пикселя.
+\item Если A не нулевое, а B = 0, то считаем, что текущий пиксель принадлежит уже помеченной компоненте, в которую входит левый пиксель, поэтому в карте временных меток выбранному пикселю также ставим значение A, которое соответствует значению в карте временных меток левого пикселя.
+\item Если A не нулевое, B не нулевое 0 и A = B, то считаем, что выбранный пиксель принадлежит уже помеченной компоненте, в которую входят и левый пиксель и верхний пиксель, поэтому в карте временных меток выбранному пикселю также ставим значение A, либо B, они равны.
+\item  Если A не нулевое, B не нулевое и A не равняется B, то считаем, что выбранный пиксель связующий для двух частей одной и той же компоненты, одной части которой принадлежит левый пиксель A, а другой - верхний пиксель B. Из-за этого сначала узнаем не принадлежат ли A и B одному и тому же множеству в СРМ, соответственно воспользоваться методом Find() в СРМ для A и для B.
+\end{enumerate}
+					\par5.1 При принадлежности одному множеству, ставим для данного пикселя в карте временных меток метку, соответствующую названию множества. Фактически A и B принадлежат одной и той же компоненте, но формально в карте временных меток у них разные значения. Это и есть причина, по которой данный массив называется картой временных меток, а не просто картой меток.
+					\par5.2 При принадлежности разным множествам, нужно их объединить в одно, воспользовавшись методом Unite() в СРМ для множеств, которым принадлежат A и B соответственно. Потом ставим для этого пикселя в карте временных меток метку, соответствующую названию объединённого множества и декрементируем число компонент.
+
+ В конце алгоритма мы будем точно знать число компонент на изображении. Также у нас будет карта временных меток и СРМ, по которым "второй проход" будет собирать финальную версию меток.
+	
+Рассмотрим второй проход:
+
+В цикле проходимся по всем меткам в карте временных меток и записываем в результирующее изображение в соответствующую позицию название множества в СРМ, которому принадлежит эта метка, т.е. воспользуемся методом Name() в СРМ для текущей метки.
+Затем после того как прошли по циклу у нас будет конечное промаркированное изображение, которое будет являться итоговым результатом работы нашего алгоритма.
+		
+	\newpage
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par Шаг 1. Разбиваем изображение на группы из нескольких строк, потому что всё изображение хранится в процессе с нулевым рангом,
+и отправка его частей другим процессам.
+\par Шаг 2. На каждом процессе запускаем первый проход и получаем карту временных меток размерами, которые соответствуют полученной части изображения, СРМ и число компонент для данного участка изображения. Именно на этом шаге и будет происходить ускорение из-за того, что
+нам необходимо будет при формировании СРМ проходиться по много раз по
+полученному процессом части изображения. Связано это с тем, что в данной
+реализации СРМ операции поиска и объединения в общем случае зависят от
+размеров изображения. И при наличии большого количества таких операций,
+мы получаем ускорение по сравнению с последовательным алгоритмом.
+\par Шаг 3. Объединяем локальные СРМ и локальные карты временных меток в единые для всего изображения глобальные СРМ и глобальную карту временных меток. Но из-за того, что мы разбили исходное изображение на части, мы могли потерять в СРМ связь между частями компонент, по которым прошёлся разрез. Для такой компоненты часть оказалась в одном процессе, а другая часть - в другом, такие участки можно называть склейками. Число склеек будет на единицу меньше числа процессов. Для данных них требуются доп. вычисления для выявления связей между частями компонент и добавлением в CPM, если необходимо.
+\par Шаг 4. Вызываем второй проход, получая
+итоговую маркировку изображения. Эту часть алгоритма
+нельзя распараллелить. В ней реализуется одноразовый проход по карте временных меток с установкой финальных меток.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из заголовочного файла component\_labeling.h и двух файлов исходного кода component\_labeling.cpp и main.cpp.
+\par В заголовочном файле находятся прототипы функций для последовательного и параллельного вычисления многомерных интегралов.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+pair<vector<int>, int> ComponentLabeling(vector<int> image, int width,
+                                         int height);
+\end{lstlisting}
+Входными параметрами функции является изображение, ширина и высота.
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+pair<vector<int>, int> ComponentLabelingParallel(vector<int> image, int width,
+                                                 int height);
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода component\_labeling.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Мы разработали несколько тестов с помощью фрэймворка Google Test, чтобы подтвердить корректность работы нашей программы. Каждый тест вычисляет значение контрольного  интеграла заданного размера при помощи последовательного и параллельного алгоритмов, подсчитывает время их работы, находит ускорение делением времени работы последовательного алгоритма на время работы параллельного. Затем результаты вычисления интеграла последовательным и параллельным способом сравниваются между собой в пределах погрешности. Далее можно сделать выводы по работе алгоритмов. Программа корректно работает.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты тестов}
+\addcontentsline{toc}{section}{Результаты тестов}
+Вычислительные тесты для оценки эффективности работы параллельного алгоритма проводились на ПК с данными характеристиками:
+\begin{itemize}
+\item Процессор: Intel Core i5-3210M,2.5 ГГц, количество ядер: 4;
+\item Оперативная память: 8 ГБ DDR3, 1600  МГц;
+\item Операционная система: Windows 10.
+\end{itemize}
+
+\par Результаты тестов представлены в Таблице 1.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте 4}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+2        & 0.901276        & 0.72103     & 1.24998       \\
+3        & 0.922381        & 0.674347     & 1.36781       \\
+4        & 0.901205        & 0.659721     & 1.36604      \\
+\hline
+\end{tabular}
+\end{table}
+Можно сделать вывод о том,
+что параллельный алгоритм работает быстрее, чем последовательный в 1.3 раз в среднем.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе данной лабораторной работы были разработаны последовательный и параллельный алгоритмы маркировки компонент на бинарном изображении. После выполенения серии экспериментов можно сделать вывод о том, что параллельный алгоритм работает быстрее последовательного, что доказывает эффективность параллельного алгоритма по сравнению с последовательным.
+\par Разработаны и доведены до успешного выполнения тесты,  с использованием Google C++ Testing Framework, которые  подтвердили корректность выполнения  программы.
+\newpage
+
+% Литература
+\section*{Список литературы}
+\addcontentsline{toc}{section}{Список литературы}
+\begin{enumerate}
+\item Гергель В. П. Теория и практика параллельных вычислений. – 2007.
+\itemГергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+
+\end{enumerate} 
+\newpage
+
+% Приложение
+	\section*{Приложение}
+	\addcontentsline{toc}{section}{Приложение}
+	\par В текущем разделе находится листинг всего кода, написанного в рамках данной лабораторной работы.
+	\begin{lstlisting}
+		// component_labeling.h
+// Copyright 2021 Boyarskov Anton
+#ifndef MODULES_TASK_3_BOYARSKOV_A_COMPONENT_LABELING_COMPONENT_LABELING_H_
+#define MODULES_TASK_3_BOYARSKOV_A_COMPONENT_LABELING_COMPONENT_LABELING_H_
+
+#include <utility>
+#include <vector>
+
+using std::pair;
+using std::vector;
+using std::max;
+using std::min;
+
+pair<vector<int>, int> getComponentLabelingSequential(vector<int> image,
+                                                      int width, int height);
+
+pair<vector<int>, pair<vector<int>, int> > firstIter(vector<int> image,
+                                                     int width, int height,
+                                                     int first_label = 0);
+
+vector<int> secondIter(vector<int> map, vector<int> disjoint_sets, int width,
+                       int height);
+
+pair<vector<int>, int> getComponentLabelingParallel(vector<int> image,
+                                                    int width, int height);
+
+vector<int> getRandomImage(int width, int height);
+
+vector<int> remark(vector<int> image, int width, int height);
+
+#endif  // MODULES_TASK_3_BOYARSKOV_A_COMPONENT_LABELING_COMPONENT_LABELING_H_
+	\end{lstlisting}
+	\begin{lstlisting}
+		// component_labeling.cpp
+
+// Copyright 2021 Boyarskov Anton
+#include "../../modules/task_3/boyarskov_a_component_labeling/component_labeling.h"
+
+#include <mpi.h>
+
+#include <algorithm>
+#include <ctime>
+#include <iostream>
+#include <random>
+#include <utility>
+#include <vector>
+
+vector<int> remark(vector<int> image, int width, int height) {
+  int size = width * height;
+  vector<int> result(size);
+  vector<int> last_labels(size / 2 + 1);
+  vector<int> new_labels(size / 2 + 1);
+  int max_label = 0;
+
+  for (int i = 0; i < size; i++) {
+    int pixel = image[i];
+    if (pixel != 0) {
+      int idx = -1;
+      for (int k = 1; last_labels[k] != 0; k++)
+        if (last_labels[k] == pixel) {
+          idx = k;
+          break;
+        }
+      if (idx == -1) {
+        last_labels[++max_label] = pixel;
+        new_labels[max_label] = max_label;
+        result[i] = new_labels[max_label];
+      } else {
+        result[i] = new_labels[idx];
+      }
+    }
+  }
+  return result;
+}
+
+vector<int> getRandomImage(int width, int height) {
+  std::mt19937 gen(time(0));
+  std::uniform_int_distribution<> uid(0, 1);
+  vector<int> img(width * height);
+  for (int i = 0; i < width * height; i++) {
+    img[i] = uid(gen) * 255;
+  }
+  return img;
+}
+
+pair<vector<int>, pair<vector<int>, int> > firstIter(vector<int> image,
+                                                     int width, int height,
+                                                     int first_label) {
+  int count = 0;
+  int size = width * height;
+  vector<int> sets(size);  // disjoint sets of labels
+  vector<int> temp(image.begin(), image.begin() + size);
+  for (int x = 0; x < size; x++) sets[x] = x + first_label;
+
+  for (int i = 0; i < height; i++) {
+    for (int j = 0; j < width; j++) {
+      int idx = i * width + j;
+      if (temp[idx] != 0) {
+        // [0]      [A]
+        // [B] [tmp_image[idx]]
+        int A, B;
+        if (idx < width) {
+          A = 0;
+        } else {
+          A = temp[idx - width];
+        }
+        if (((idx < 1) || ((idx - 1) / width != i))) {
+          B = 0;
+        } else {
+          B = temp[idx - 1];
+        }
+
+        if ((A == 0) && (B == 0)) {
+          temp[idx] = idx + first_label + 1;
+          count++;
+        }
+        if ((A == 0) && (B != 0)) temp[idx] = B;
+        if ((A != 0) && (B == 0)) temp[idx] = A;
+        if ((A != 0) && (B != 0)) {
+          if (A == B) {
+            temp[idx] = A;
+          } else {
+            int AB_max = max(A, B);
+            while (sets[AB_max - first_label] != AB_max)
+              AB_max = sets[AB_max - first_label];
+
+            int AB_min = min(A, B);
+            while (sets[AB_min - first_label] != AB_min)
+              AB_min = sets[AB_min - first_label];
+
+            if (AB_max != AB_min) {
+              sets[AB_max - first_label] = AB_min;
+              count--;
+            }
+
+            temp[idx] = AB_min;
+          }
+        }
+      }
+    }
+  }
+
+  // cout << "Tmp img" << endl;
+  // for (int r = 0; r < height; r++) {
+  //  for (int c = 0; c < width; c++) {
+  //    // cout << tmp_image[c + r * width] << " ";
+  //  }
+  //  // cout << endl;
+  //}
+  // cout << "Disjoint sets" << endl;
+  // for (int r = 0; r < height; r++) {
+  //  for (int c = 0; c < width; c++) {
+  //    // cout << disjoint_sets[c + r * width] << " ";
+  //  }
+  //  // cout << endl;
+  //}
+
+  return make_pair(temp, make_pair(sets, count));
+}
+
+vector<int> secondIter(vector<int> map, vector<int> sets, int width,
+                       int height) {
+  // std::cout << "Point 5.1" << std::endl;
+  int image_size = width * height;
+  vector<int> result(image_size);
+  int pixels_count = image_size;
+
+  // cout << "Point 5.2" << endl;
+  // std::cout << pixels_count << " " << map.size() << " " << result.size() << "
+  // "
+  //       << sets.size() << std::endl;
+  for (int pos = 0; pos < pixels_count - 1; pos++) {
+    try {
+      int pixel = map[pos];
+      if (pixel != 0) {
+        if (sets[pixel] == pixel) {
+          result[pos] = pixel;
+        } else {
+          while (sets[pixel] != pixel) pixel = sets[pixel];
+          result[pos] = pixel;
+        }
+      }
+    } catch (...) {
+      // cout << "Oops";
+    }
+  }
+
+  /*int A = map[image_size - width];
+int B = map[image_size - 2];
+if ((A == 0) && (B == 0)) result[image_size - 1] = map[--pixels_count];
+if ((A != 0) && (B == 0)) result[image_size - 1] = A;
+if ((A == 0) && (B != 0)) result[image_size - 1] = B;
+if ((A != 0) && (B != 0)) result[image_size - 1] = min(A, B);*/
+
+  // cout << "Point 5.3" << endl;
+  return result;
+}
+
+pair<vector<int>, int> getComponentLabelingSequential(vector<int> image,
+                                                      int width, int height) {
+  pair<vector<int>, pair<vector<int>, int> > first_pass_result =
+      firstIter(image, width, height);
+
+  vector<int> map = first_pass_result.first;
+  vector<int> disjoint_sets = first_pass_result.second.first;
+  int labels_count = first_pass_result.second.second;
+
+  vector<int> result = secondIter(map, disjoint_sets, width, height);
+
+  return make_pair(result, labels_count);
+}
+
+pair<vector<int>, int> getComponentLabelingParallel(vector<int> image,
+                                                    int width, int height) {
+  int size, rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  if (size == 1) return getComponentLabelingSequential(image, width, height);
+
+  // if (rank == 0) cout << "Point 1" << endl;
+
+  int image_size = width * height;
+  const int delta = height / size * width;
+  const int rem = (height % size) * width;
+
+  if (delta == 0) {
+    if (rank == 0) {
+      return getComponentLabelingSequential(image, width, height);
+    } else {
+      return make_pair(vector<int>{}, 0);
+    }
+  }
+
+  if (rank == 0) {
+    for (int proc = 1; proc < size; proc++)
+      MPI_Send(image.data() + rem + proc * delta, delta, MPI_INT, proc, 0,
+               MPI_COMM_WORLD);
+  }
+
+  // if (rank == 0) cout << "Point 2" << endl;
+
+  vector<int> local_image(delta + rem);
+
+  if (rank == 0) {
+    local_image = vector<int>(image.cbegin(), image.cbegin() + delta + rem);
+  } else {
+    MPI_Recv(local_image.data(), delta, MPI_INT, 0, 0, MPI_COMM_WORLD,
+             MPI_STATUSES_IGNORE);
+  }
+
+  int temp_height = 0, temp_label = delta * rank;
+  if (rank == 0) {
+    temp_height = (rem + delta) / width;
+  } else {
+    temp_height = delta / width;
+    temp_label += rem;
+  }
+  pair<vector<int>, pair<vector<int>, int> > firstIterResult =
+      firstIter(local_image, width, temp_height, temp_label);
+
+  // if (rank == 0) cout << "Point 3" << endl;
+
+  vector<int> map = firstIterResult.first,
+              dis_set = firstIterResult.second.first;
+  int local_labels_counts = firstIterResult.second.second;
+
+  vector<int> displs(size), counts(size);
+  counts[0] = rem + delta;
+  counts[1] = delta;
+  displs[1] = rem + delta;
+  for (int proc = 2; proc < size; proc++) {
+    displs[proc] = displs[proc - 1] + delta;
+    counts[proc] = delta;
+  }
+
+  // if (rank == 0) cout << "Point 4" << endl;
+
+  vector<int> global_sets(image_size);
+  int temp_sendcount = delta;
+  if (rank == 0) temp_sendcount += rem;
+
+  MPI_Gatherv(dis_set.data(), temp_sendcount, MPI_INT, global_sets.data(),
+              counts.data(), displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+
+  vector<int> global_map(image_size);
+  MPI_Gatherv(map.data(), temp_sendcount, MPI_INT, global_map.data(),
+              counts.data(), displs.data(), MPI_INT, 0, MPI_COMM_WORLD);
+
+  int global_count = 0;
+  MPI_Reduce(&local_labels_counts, &global_count, 1, MPI_INT, MPI_SUM, 0,
+             MPI_COMM_WORLD);
+
+  // if (rank == 0) cout << "Point 5" << endl;
+
+  vector<int> result(image_size);
+  if (rank == 0) {
+    for (int x = 1; x < size; x++) {
+      int line_two = delta * x;
+      if (x != 0) {
+        line_two += rem;
+      }
+      int line_one = line_two - width;
+
+      for (int x = 0; x < width; x++) {
+        int A = global_map[line_one + x];
+        int B = global_map[line_two + x];
+        if ((A != 0) && (B != 0)) {
+          int A_set = global_sets[A];
+          int B_set = global_sets[B];
+          if (A_set != B_set) {
+            int AB_max = max(A, B);
+
+            while (global_sets[AB_max] != AB_max) AB_max = global_sets[AB_max];
+
+            int AB_min = min(A, B);
+
+            while (global_sets[AB_min] != AB_min) AB_min = global_sets[AB_min];
+
+            if (AB_max != AB_min) {
+              global_sets[AB_max] = AB_min;
+              global_count--;
+            }
+          }
+        }
+      }
+    }
+    result = secondIter(global_map, global_sets, width, height);
+  }
+
+  // if (rank == 0) cout << "Point 6" << endl;
+
+  return make_pair(result, global_count);
+}
+	\end{lstlisting}
+	\begin{lstlisting}
+	// main.cpp
+// Copyright 2021 Boyarskov Anton
+#include <gtest/gtest.h>
+
+#include <gtest-mpi-listener.hpp>
+
+#include "./component_labeling.h"
+
+TEST(Component_Labeling_MPI, Test_1) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  vector<int> image;
+  int width = 700, height = 300;
+
+  if (rank == 0) {
+    image = getRandomImage(width, height);
+  }
+  double start = MPI_Wtime();
+  pair<vector<int>, int> parallel_labels =
+      getComponentLabelingParallel(image, width, height);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+
+    start = MPI_Wtime();
+    pair<vector<int>, int> reference_labels =
+        getComponentLabelingSequential(image, width, height);
+    end = MPI_Wtime();
+    double stime = end - start;
+
+    std::cout << stime / ptime << std::endl;
+
+  ASSERT_EQ(parallel_labels.second, reference_labels.second);
+  }
+}
+
+TEST(Component_Labeling_MPI, Test_2) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  vector<int> image;
+  int width = 200, height = 400;
+
+  if (rank == 0) {
+    image = getRandomImage(width, height);
+  }
+
+  pair<vector<int>, int> parallel_labels =
+      getComponentLabelingParallel(image, width, height);
+
+  if (rank == 0) {
+    pair<vector<int>, int> reference_labels =
+        getComponentLabelingSequential(image, width, height);
+
+    ASSERT_EQ(parallel_labels.second, reference_labels.second);
+  }
+}
+
+TEST(Component_Labeling_MPI, Test_3) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  vector<int> image;
+  int width = 123, height = 207;
+
+  if (rank == 0) {
+    image = getRandomImage(width, height);
+  }
+
+  pair<vector<int>, int> parallel_labels =
+      getComponentLabelingParallel(image, width, height);
+
+  if (rank == 0) {
+    pair<vector<int>, int> reference_labels =
+        getComponentLabelingSequential(image, width, height);
+
+    ASSERT_EQ(parallel_labels.second, reference_labels.second);
+  }
+}
+
+TEST(Component_Labeling_MPI, Test_4) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  vector<int> image;
+  int width = 503, height = 1007;
+
+  if (rank == 0) {
+    image = getRandomImage(width, height);
+  }
+
+  pair<vector<int>, int> parallel_labels =
+      getComponentLabelingParallel(image, width, height);
+
+  if (rank == 0) {
+    pair<vector<int>, int> reference_labels =
+        getComponentLabelingSequential(image, width, height);
+
+    ASSERT_EQ(parallel_labels.second, reference_labels.second);
+  }
+}
+
+TEST(Component_Labeling_MPI, Test_5) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  vector<int> image;
+  int width = 1001, height = 403;
+
+  if (rank == 0) {
+    image = getRandomImage(width, height);
+  }
+
+  pair<vector<int>, int> parallel_labels =
+      getComponentLabelingParallel(image, width, height);
+
+  if (rank == 0) {
+    pair<vector<int>, int> reference_labels =
+        getComponentLabelingSequential(image, width, height);
+
+    ASSERT_EQ(parallel_labels.second, reference_labels.second);
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+	\end{lstlisting}
+
+\end{document}
