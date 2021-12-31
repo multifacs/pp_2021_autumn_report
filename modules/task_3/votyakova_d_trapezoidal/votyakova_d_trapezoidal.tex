@@ -1,0 +1,441 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Вычисление многомерных интегралов с использованием многошаговой схемы 
+(метод трапеций)»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнилa:} \\ студентка группы 381906-1 \\ Вотякова Д.С. \\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par В данной лабораторной работе мне было предложено решить одну из известных задач математики, задача–вычисление значений определенных интегралов.
+Задача вычисления определенного интеграла I для некоторой заданной на отрезке [a, b] функции f(x) является классической задачей математического анализа. Известно,что если функция f(x) ограничена на [a, b] и имеет на нем конечное число точек разрыва, то она интегрируема на этом отрезке.Такое значение дейсвительно существует, единственно и может быть формально получено по определению как\\
+\begin{equation}\iiint{f(x_1,\dots,x_k) dx_1 \dots dx_k} = h_i\sum_{i=1}^{N}{f(p_{i})} \end{equation}
+В данной лабораторной работе изучаются подходы к распараллеливанию метода трапеций,идеи по алгоритмической оптимизации, приводящие к уменьшению времени вычислений, вопросы параллельной отладки.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе я буду реализовывать последовательный и параллельный алгоритмы для вычисления многомерных  интегралов методом трапеций.
+
+\par Параллельный алгоритм должен быть реализован  при помощи технологии MPI. А для проверки корректности работы алгоритмов будем использовать Google C++ Testing Framework.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par \addcontentsline{toc}{section}{Метод решения}
+Алгоритм вычисления интегралов методом трапеций:
+\parПусть функция y = f(x) непрерывна на отрезке [a; b]. Нам требуется вычислить определенный интеграл.
+
+\par1) Весь участок [a, b] делим на n равных интервалов с шагом h = (b - a)/ n.
+\par2) Вычисляем значение подынтегральной функции в каждой узловой точке.
+\par3) На каждом шаге подынтегральную функцию f(x) аппроксимируем прямой, соединяющей две соседние узловые точки. В результате вся подынтегральная функция на участке [a,b] заменяется ломаной линией проходящей через все узловые точки.
+\par4) Вычисляем площадь каждой частичной трапеции.
+\par5) Приближенное значение интеграла равно сумме площадей частичных трапеций.
+
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par
+ Мы заводим локальную переменную для вычисления площади трапеции,так называемого сегмента в коде программы.Заданное количество сегментов будут распределяться между определенным количеством процессов, каждая локальная переменная будет считаться в каждом процессе,т.е каждый процесс будет считать только свои сегменты,после чего с помощью специальных функций MPI все локальные перемнные собираются в процессе с нулевым рангом,т.е в главном процессе,где тот в свою очередь складывает локальные переменные в глобальную после чего результат будет умножаться на шаги разбиения сегментов интегрирования и в итоге мы получим приближенное значения интеграла.В этом и состоит основная идея реализации параллельного алгоритма.
+
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из трех файлов trapezoidal.h , trapezoidal.cpp и main.cpp.
+\par В файле trapezoidal.h мы храним прототипы функций для последовательного и параллельного алгоритмов.
+\par Функция для последовательного алгоритма:
+\begin{lstlisting}
+
+ double SequentialTrapezoidal(int segments, ABs ab, func fn);
+  
+\end{lstlisting}
+В качестве входных  параметров мы задаем: число сегментов разбиения, массив пределов  и подынтегральная функция.
+\par Функция для параллельного
+алгоритма:
+\begin{lstlisting}
+double ParallelTrapezoidal(int segments, ABs ab, const func fn);
+\end{lstlisting}
+.В качестве входных  параметров мы задаем: число сегментов разбиения, массив пределов  и подынтегральная функция.
+\par В файле  trapezoidal.cpp содержится реализация функций, объявленных в файле trapezoidal.h. В файле  main.cpp мы содержим тесты для проверки корректности работы программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+ Для проверки корректности работы программы я разработала  тесты с помощью фрэймфорка Google Test. В каждом отдельном тесте мы задаем произвольный интеграл произвольной размерности и каждый тест вычисляет значение данного интеграла при помощи последовательного и параллельного алгоритма,также в каждом тесте мы считаем время работы последовательного и параллельного алгритмов,находим ускорение и затем результаты выполнения двух алгоритмов сравниваются  между собой в точности до эпсилон.
+
+\par Если все тесты проходят успешно,то программа работает корректно.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор:Intel(R) Core(TM) i5-8265U 1.8GHz, количество ядер: 4; логических процессов:8;
+\item Оперативная память: 8 ГБ
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Эксперименты проводились на различном числе процессов от 1 до 10 для вычисления двумерного  интеграла  с количеством разбиений, равным 200. 
+\par Результаты экспериментов представлены мы можем наблюдать в таблице ниже.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов в тесте 3}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+1        & 0.05432        & 0.062841    &1.015634       \\
+2        & 0.0834      &0.038933   &  2.042084     \\
+3        &  0.0769317      & 0.025528      &3.459823 \\
+4        &  0.0984553       &  0.014367     & 4.10728     \\
+5        &  0.0862348      & 0.023853   &   3.30754     \\
+6        &  0.1837453      &   0.019835   &    8.875354    \\
+7        &    0.193467      & 0.019826      &  7.442898     \\
+8        &   0.1458342       &   0.019367  &   7.619457   \\
+10       &    0.157632       &   0.018432  &   12.331947   \\
+\hline
+\end{tabular}
+\end{table}
+
+\par По данным представленным в таблице можно утверждать,что параллельный алгоритм работает быстрее, чем последовательный. Процессов имеет 8 логических ядер, максимальное ускорение составляет 8 раз. В эксперименте на 10 процессов мы можем заметить,что  результат ускорения превосходит это значение. Это связано с тем,что алгоритмы имеют разную сложность и сложность параллельного алгоритма гораздо меньше последовательного.
+\newpage
+
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы вычисления многомерных интегралов методом трапеций. Тесты разработанные с помощью  фрэймфорка Google Test подтвердили корректность работы реализованной программы, а  эксперименты показали, что параллельный алгоритм работает быстрее.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Гергель В. П. Теория и практика параллельных вычислений. – 2007.
+\itemГергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+trapezoidal.cpp
+\begin{lstlisting}
+// Copyright 2021 Votyakova Daria
+#include "../../../modules/task_3/votyakova_d_trapezoidal/trapezoidal.h"
+
+#include <mpi.h>
+
+double SequentialTrapezoidal(int segments, ABs ab, func fn) {
+  int integral_dim = static_cast<int>(ab.size());
+  int it = 1;
+  vector<double> height(integral_dim);
+  for (int i = 0; i < integral_dim; i++) {
+    height[i] = (ab[i].second - ab[i].first) / segments;
+    it = it * segments;
+  }
+  double result = 0.0;
+  vector<double> x(integral_dim);
+  for (int i = 0; i < it; i++) {
+    for (int j = 0; j < integral_dim; j++) {
+      x[j] = ab[j].first + (i % segments) * height[j] + height[j] * 0.5;
+    }
+    result += fn(x);
+  }
+
+  for (int i = 0; i < integral_dim; i++) {
+    result *= height[i];
+  }
+  return result;
+}
+
+double ParallelTrapezoidal(int segments, ABs ab, const func fn) {
+  int world_size, proc_rank;
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+  MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank);
+
+  int integral_dim = static_cast<int>(ab.size());
+  vector<double> height(segments);
+  int it_all = 1;
+
+  for (int i = 0; i < integral_dim; i++) {
+    height[i] = (ab[i].second - ab[i].first) / segments;
+    it_all *= segments;
+  }
+
+  int delta = it_all / world_size;
+
+  int start = 0;
+  if (proc_rank != 0) start = proc_rank * delta + it_all % world_size;
+  int end = (proc_rank + 1) * delta + it_all % world_size;
+
+  vector<double> x(integral_dim);
+  double local_result = 0.0;
+  for (int j = start; j < end; j++) {
+    for (int i = 0; i < integral_dim; i++) {
+      x[i] = ab[i].first + (j % segments) * height[i] + height[i] * 0.5;
+    }
+    local_result += fn(x);
+  }
+
+  double global_result = 0.0;
+  MPI_Reduce(&local_result, &global_result, 1, MPI_DOUBLE, MPI_SUM, 0,
+             MPI_COMM_WORLD);
+
+  if (proc_rank == 0) {
+    for (int i = 0; i < integral_dim; i++) {
+      global_result *= height[i];
+    }
+  }
+
+  return global_result;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Votyakova Daria
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <gtest-mpi-listener.hpp>
+
+#include "./trapezoidal.h"
+
+using std::cout;
+using std::endl;
+
+const double error = 0.01;
+
+const function<double(vector<double>)> f1 = [](vector<double> vec) {
+  double x = vec[0];
+  return x * x + 10 * x - 5;
+};
+
+const function<double(vector<double>)> f2 = [](vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  return x - sin(y) + x * x;
+};
+
+const function<double(vector<double>)> f3 = [](vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  return y * y * y - 10 * cos(x);
+};
+
+const function<double(vector<double>)> f4 = [](vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  double z = vec[2];
+  return x * x * x + sin(y) * 2 - 10 * z;
+};
+
+const function<double(vector<double>)> f5 = [](vector<double> vec) {
+  double x = vec[0];
+  double y = vec[1];
+  double z = vec[2];
+  return (x + y + z) * 10 * log10(z);
+};
+
+TEST(Trapezoidal_method_MPI, TEST_1) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  ABs abs = {{0, 2}};
+  int segments = 100;
+
+  double parallel_integral = ParallelTrapezoidal(segments, abs, f1);
+
+  if (rank == 0) {
+    double sequential_integral = SequentialTrapezoidal(segments, abs, f1);
+
+    ASSERT_NEAR(sequential_integral, parallel_integral, error);
+  }
+}
+
+TEST(Trapezoidal_method_MPI, TEST_2) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  ABs abs = {{0, 2}, {-1, 5}};
+  int segments = 50;
+
+  double parallel_integral = ParallelTrapezoidal(segments, abs, f2);
+
+  if (rank == 0) {
+    double sequential_integral = SequentialTrapezoidal(segments, abs, f2);
+
+    ASSERT_NEAR(sequential_integral, parallel_integral, error);
+  }
+}
+
+TEST(Trapezoidal_method_MPI, TEST_3) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  ABs abs = {{0, 2}, {1, 3}};
+  int segments = 100;
+
+  double parallel_integral = ParallelTrapezoidal(segments, abs, f3);
+
+  if (rank == 0) {
+    double sequential_integral = SequentialTrapezoidal(segments, abs, f3);
+
+    ASSERT_NEAR(sequential_integral, parallel_integral, error);
+  }
+}
+
+TEST(Trapezoidal_method_MPI, TEST_4) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  ABs abs = {{0, 2}, {1, 3}, {-2, 3}};
+  int segments = 10;
+
+  double parallel_integral = ParallelTrapezoidal(segments, abs, f4);
+
+  if (rank == 0) {
+    double sequential_integral = SequentialTrapezoidal(segments, abs, f4);
+
+    ASSERT_NEAR(sequential_integral, parallel_integral, error);
+  }
+}
+
+TEST(Trapezoidal_method_MPI, TEST_5) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  ABs abs = {{0, 2}, {6, 7}, {5, 10}};
+  int segments = 10;
+
+  double start, end;
+  if (rank == 0) start = MPI_Wtime();
+  double parallel_integral = ParallelTrapezoidal(segments, abs, f5);
+  if (rank == 0) end = MPI_Wtime();
+
+  if (rank == 0) {
+    double ptime = end - start;
+    cout << "P time: " << ptime << endl;
+
+    start = MPI_Wtime();
+    double sequential_integral = SequentialTrapezoidal(segments, abs, f5);
+    end = MPI_Wtime();
+
+    double stime = end - start;
+    cout << "S time: " << stime << endl;
+    cout << "Speedup: " << stime / ptime << endl;
+
+    ASSERT_NEAR(sequential_integral, parallel_integral, error);
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
