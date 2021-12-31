@@ -1,0 +1,520 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Линейная фильтрация изображений (блочное разбиение). Ядро Гаусса 3х3»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнила:} \\ студентка группы 381906-3 \\ Медведева К.Е.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Существуют ситуации, когда для выполнения определенной вычислительной задачи необходимо использовать несколько компьютеров, поэтому очень важно правильно организовать их совместную работу. 
+\par Распределенные вычисления – параллельная обработка данных, при которой используется несколько обрабатывающих устройств, объединенных в сеть. Наиболее популярным способом реализации распределенных вычислений является использование парадигм параллельных вычислений и соответствующих библиотек. Одной из таких библиотек является MPI (Message passing interface). 
+\par Благодаря использованию распределенных вычислений в программе, решающей определенные задачи, можно увеличить скорость ее работы и эффективность решения задачи. Одной из такой задач, к которой можно применить данный метод, является задача линейной фильтрации изображений ядром Гаусса. 
+\par Фильтр Гаусса - фильтр линейного сглаживания изображений, применяемый для подавления шумов.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par Передо мной были поставлены следующие задачи: 
+\par 1. Реализовать последовательный алгоритм решения задачи линейной фильтрации изображений с использованием ядра Гаусса 3х3; 
+\par 2. Реализовать параллельный алгоритм вышеупомянутой задачи с применением блочного разбиения матриц; 
+\par 3. Исследовать и сравнить время работы алгоритмов; 
+\par 4. Продемонстрировать визуально работу моей программы с использованием библиотеки OpenCV.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par Фильтр Гаусса относится к группе матричных фильтров обработки изображений. Все они действуют по схожему принципу - на каждом шаге алгоритма берется некий целевой пиксель и на его окрестность накладывается матрица преобразования, после чего происходит поэлементное перемножение блока исходной матрицы на ядро (так называют матрицу преобразования). Результаты умножения суммируются друг с другом, а затем полученная сумма нормируется делением на количество элементов в ядре и записывается на позицию целевого пикселя в результирующую матрицу-изображение. Использование матричного фильтра подразумевает применение этой операции к каждому пикселю исходной картинки. 
+\par Исключительные ситуации (в случае использования ядра 3х3) возникают лишь на граничных - левых, верхних, правых и нижних пикселях, у которых нет соседних элементов с той или иной стороны. Это может обрабатываться по-разному и один из типовых способов - "продлить" картинку на 1 элемент в каждую сторону, чтобы при выходе за границы мы обращались также к граничному пикселю. Минус такого подхода в появлении некой рамки у изображения, но с большими размерами это почти незаметно. 
+\parЯдро матрицы Гаусса формируется по заранее известной формуле  $e^{- \frac{(3i + j)^2}{(2\sigma^2)}}$ .
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par По условию задачи нужно реализовать блочное разбиение матрицы, то есть ее разбиение на блоки одинаковых размеров. В связи с этим необходимо обеспечить кратность корня из числа процессов количеству строк или столбцов изображения (в данном случае они равны, так как изображение квадратное - это необходимое условие блочного разбиения) и создать новый коммуникатор, которому будут принадлежать нужные процессы. 
+\par Затем, в цикле вычисляется смещение исходного блока относительно начала матрицы, смещения относительно границ изображения для обработки исключительных ситуаций и выполняется передача данных с помощью функции MPI\_Send(). 
+\par Для приема переданных данных создается вектор local\_matrix, к которому впоследствии применяется последовательный алгоритм. В результате получается новый локальный ответ, представляющий из себя определнное количество блоков. 
+\par Полученные в результате применения последовательного алгоритма блоки необходимо собрать в исходный ответ. Для этого в каждом процессе создается матрица размера, равного размеру изображения, в которую на нужное место записывается каждый блок. Далее выполняется операция редукции. 
+\par После выполнения всех шагов параллельного алгоритма освобождается созданный коммуникатор с помощью MPI\_comm\_free().
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из 3 модулей: 
+\par 1. Файл gauss\_block\_partition.cpp - основной файл, содержащий реализацию функций последовательного и параллельного алгоритмов; 
+\par 2. Заголовочный файл (//gauss\_block\_partition.h), который подключен к основному модулю. Заголовочный файл содержит прототипы функций; 
+\par 3. Файл //main.cpp, в котором содержатся тесты, разработанные на основе фреймворка Google Test.
+
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы написанной мною программы я написала 7 тестов. В каждом из них сравнивается результирующая матрица - изображение, полученная с помощью последовательного и параллельного алгоритмов на одинаковых данных. В данном случае результаты совпадают при запуске на любом числе процессов и размере входных данных, что говорит о корректности работы разработанных алгоритмов. 
+\par Помимо тестов корректность работы моей программы проверяется визуально применением реализованного фильтра Гаусса к изображению в серых тонах. Данная проверка производилась с помощью библиотеки OpenCV.
+
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 5500U, 2.4 ГГц (4.0 ГГц, в режиме Turbo), количество ядер: 6;
+\item Оперативная память: 16 ГБ (DDR4), 3200 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для изображения размером 3600х3600}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма & Время работы параллельного алгоритма & Ускорение  \\[5pt]
+\hline
+4        & 2.435854        & 1.095571     & 2.223365       \\
+9        & 2.478316        & 1.013742     & 2.444719       \\
+16       & 2.387498        & 0.985162     & 2.423458	   \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\caption{Результаты экспериментов для изображения размером 8192х8192}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество процессов & Время работы последовательного алгоритма & Время работы параллельного алгоритма & Ускорение  \\[5pt]
+\hline
+4        & 9.250179        & 5.841836     & 1.583437       \\
+9        & 9.688103        & 5.618674     & 1.724268       \\
+16       & 9.753422        & 5.773206     & 1.689429       \\
+\hline
+\end{tabular}
+\end{table}
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+Из проведенных экспериментов видно, что параллельный алгоритм работает быстрее последовательного. Это связано не только с распределением вычислений по различным процессам, но и уменьшением количества данных в каждом, благодаря чему появляется возможность разместить их в кэше, который является наиболее быстрым типом памяти. 
+\par Однако, на больших данных эффект кэша уже теряется, так как даже распределенные по процессам данные полностью не помещаются в более быструю память, объем которой меньше, чем объем, например, жесткого диска - в нем ВАП программы располагается изначально и в случае, если мы обращаемся к каким-то страницам, еще не выгруженным в RAM, происходят страничные сбои, что отрицательно сказывается на времени работы.
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В процессе учебной практики я получила новые знания о распределенных вычислениях. В результате мне удалось успешно реализовать последовательный и параллельный алгоритмы решения задачи линейной фильтрации изображений с использованием ядра Гаусса 3х3 и блочного разбиения. 
+\par Кроме того, я провела сравнение последовательного и параллельного алгоритмов и убедилась в эффективности использования MPI.
+
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\par Обработка и анализ изображений - Электронный ресурс. URL: \url{http://www.graph.unn.ru/rus/materials/CG/CG04_ImageProcessing2.pdf}
+\par Электронный ресурс. URL: \url{https://russianblogs.com/article/7930400611/}
+
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+medvedeva\_k\_gauss\_block\_partition.h
+\begin{lstlisting}
+// Copyright 2021 Medvedeva Karina
+#ifndef MODULES_TASK_3_MEDVEDEVA_K_GAUSS_BLOCK_PARTITION_GAUSS_BLOCK_PARTITION_H_
+#define MODULES_TASK_3_MEDVEDEVA_K_GAUSS_BLOCK_PARTITION_GAUSS_BLOCK_PARTITION_H_
+
+#include <vector>
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count, std::vector<int>::size_type column_count);
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type matrix_size);
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count);
+void getGaussKernel(double sigma);
+
+#endif  // MODULES_TASK_3_MEDVEDEVA_K_GAUSS_BLOCK_PARTITION_GAUSS_BLOCK_PARTITION_H_
+
+\end{lstlisting}
+medvedeva\_k\_gauss\_block\_partition.cpp
+\begin{lstlisting}
+// Copyright 2021 Medvedeva Karina
+#include <mpi.h>
+#include <vector>
+#include <string>
+#include <random>
+#include <algorithm>
+#include "../../../modules/task_3/medvedeva_k_gauss_block_partition/gauss_block_partition.h"
+
+static std::vector<double> gauss_kernel(9, 0);
+
+std::vector<int> getRandomMatrix(std::vector<int>::size_type row_count, std::vector<int>::size_type column_count) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+    std::vector<int> vec(row_count * column_count);
+    for (std::vector<int>::size_type i = 0; i < row_count; i++) {
+        for (std::vector<int>::size_type j = 0; j < column_count; j++) {
+            vec[i * column_count + j] = gen() % 100;
+        }
+    }
+    return vec;
+}
+
+void getGaussKernel(double sigma) {
+    double norm = 0;
+
+    for (std::vector<int>::size_type i = 0; i < 3; i++) {
+        for (std::vector<int>::size_type j = 0; j < 3; j++) {
+            gauss_kernel[i * 3 + j] = exp(-(i * 3. + j) * (i * 3. + j) / (2. * sigma * sigma));
+            norm += gauss_kernel[i * 3 + j];
+        }
+    }
+
+    for (std::vector<int>::size_type i = 0; i < gauss_kernel.size(); i++) {
+        if (norm != 0) {
+            gauss_kernel[i] /= norm;
+        }
+    }
+}
+
+std::vector<int> getSequentialOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type row_count,
+    std::vector<int>::size_type column_count) {
+    std::vector<int> res(matrix);
+    std::vector<int> block(9, 0);
+    for (std::size_t i = column_count + 1; i < row_count * column_count - column_count - 1; i++) {
+        if (i % column_count != 0 && (i + 1) % column_count != 0) {
+            block[0] = i - column_count - 1;
+            block[1] = i - column_count;
+            block[2] = i - column_count + 1;
+            block[3] = i - 1;
+            block[4] = i;
+            block[5] = i + 1;
+            block[6] = i + column_count - 1;
+            block[7] = i + column_count;
+            block[8] = i + column_count + 1;
+
+            double sum = 0;
+            for (std::size_t j = 0; j < 9; j++) {
+                sum += static_cast<double>(matrix[block[j]]) * gauss_kernel[j];
+            }
+            res[i] = static_cast<int>(sum);
+        }
+    }
+    return res;
+}
+
+std::vector<int> getParallelOperations(const std::vector<int>& matrix,
+    std::vector<int>::size_type matrix_size) {
+    int size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int square_root_size = 0;
+    for (square_root_size = static_cast<int>(sqrt(size)); matrix_size % square_root_size != 0; square_root_size--) {}
+    int new_size = square_root_size * square_root_size;
+
+    if (new_size < 4 || matrix_size < 4) {
+        return rank == 0 ? getSequentialOperations(matrix, matrix_size, matrix_size) : std::vector<int>{};
+    }
+
+    MPI_Group MPI_GROUP, MPI_ACTUAL_GROUP;
+    MPI_Comm_group(MPI_COMM_WORLD, &MPI_GROUP);
+
+    std::vector<int> needed_vector(new_size);
+    for (int i = 0; i < new_size; i++) {
+        needed_vector[i] = i;
+    }
+
+    MPI_Comm MPI_ACTUAL_PROC;
+    MPI_Group_incl(MPI_GROUP, new_size, needed_vector.data(), &MPI_ACTUAL_GROUP);
+    MPI_Comm_create(MPI_COMM_WORLD, MPI_ACTUAL_GROUP, &MPI_ACTUAL_PROC);
+
+    if (rank >= new_size) {
+        return std::vector<int>{};
+    }
+
+    int blocks_count = static_cast<int>(sqrt(new_size));
+
+    std::vector<int>::size_type local_size = matrix_size / blocks_count;
+    std::vector<int>::size_type local_left_step = std::min(rank % blocks_count, 1);
+    std::vector<int>::size_type local_right_step = std::min((rank + 1) % blocks_count, 1);
+    std::vector<int>::size_type local_up_step = std::min(rank / blocks_count, 1);
+    std::vector<int>::size_type local_down_step = rank / blocks_count == blocks_count - 1 ? 0 : 1;
+    std::vector<int>::size_type row_count = local_size + local_up_step + local_down_step;
+    std::vector<int>::size_type column_count = local_size + local_left_step + local_right_step;
+
+    if (rank == 0) {
+        for (int proc = 1; proc < new_size; proc++) {
+            std::vector<int>::size_type step = (proc / blocks_count) * matrix_size * local_size +
+                proc % blocks_count * local_size;
+            std::vector<int>::size_type step_left = std::min(proc % blocks_count, 1);
+            std::vector<int>::size_type step_right = std::min((proc + 1) % blocks_count, 1);
+            std::vector<int>::size_type step_up = std::min(proc / blocks_count, 1);
+            std::vector<int>::size_type step_down = proc / blocks_count == blocks_count - 1 ? 0 : 1;
+            std::vector<int>::size_type proc_row_count = local_size + step_up + step_down;
+            std::vector<int>::size_type proc_column_count = local_size + step_left + step_right;
+
+            if (step_left == 1)
+                step--;
+
+            if (step_up == 1)
+                step -= matrix_size;
+
+            std::vector<int> block(proc_row_count * proc_column_count, 0.0);
+
+            for (std::vector<int>::size_type i = 0; i < proc_row_count; ++i) {
+                for (std::vector<int>::size_type j = 0; j < proc_column_count; ++j) {
+                    std::vector<int>::size_type global_step = matrix_size * i;
+                    std::vector<int>::size_type local_step = j;
+
+                    block[i * proc_column_count + j] = matrix[step + local_step + global_step];
+                }
+            }
+
+            MPI_Send(block.data(), static_cast<int>(proc_row_count * proc_column_count),
+                MPI_INT, proc, 1, MPI_ACTUAL_PROC);
+        }
+    }
+
+    std::vector<int> local_matrix(row_count * column_count, 0);
+
+    if (rank == 0) {
+        for (std::vector<int>::size_type i = 0; i < row_count; ++i) {
+            for (std::vector<int>::size_type j = 0; j < column_count; ++j) {
+                std::vector<double>::size_type global_step = matrix_size * i;
+                std::vector<double>::size_type local_step = j;
+
+                local_matrix[i * column_count + j] = matrix[local_step + global_step];
+            }
+        }
+    } else {
+        MPI_Status status;
+        MPI_Recv(local_matrix.data(), static_cast<int>(row_count * column_count),
+            MPI_INT, 0, 1, MPI_ACTUAL_PROC, &status);
+    }
+
+    auto new_local_matrix = getSequentialOperations(local_matrix, row_count, column_count);
+    std::vector<int> local_res(matrix_size * matrix_size, 0);
+
+    for (std::vector<int>::size_type i = local_up_step; i < row_count - local_down_step; i++) {
+        for (std::vector<int>::size_type j = local_left_step; j < column_count - local_right_step; j++) {
+            std::vector<double>::size_type row = (rank / blocks_count) * local_size + (i - local_up_step);
+            std::vector<double>::size_type column = (rank % blocks_count) * local_size + (j - local_left_step);
+
+            local_res[row * matrix_size + column] = new_local_matrix[i * column_count + j];
+        }
+    }
+    std::vector<int> res(matrix_size * matrix_size, 0);
+    MPI_Reduce(local_res.data(), res.data(), static_cast<int>(matrix_size * matrix_size),
+        MPI_INT, MPI_SUM, 0, MPI_ACTUAL_PROC);
+
+    MPI_Comm_free(&MPI_ACTUAL_PROC);
+
+    return res;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Medvedeva Karina
+#include <gtest/gtest.h>
+#include <vector>
+#include "./gauss_block_partition.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Generation_Matrix, can_generate_square_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(10, 10));
+}
+
+TEST(Generation_Matrix, can_generate_arbitrary_matrix) {
+    ASSERT_NO_THROW(getRandomMatrix(10, 15));
+}
+
+TEST(Sequential_Operations_MPI, getSequentialOperations_can_work_with_square_matrix) {
+    std::vector<int> matrix = getRandomMatrix(10, 10);
+
+    ASSERT_NO_THROW(getSequentialOperations(matrix, 10, 10));
+}
+
+TEST(Sequential_Operations_MPI, getSequentialOperations_can_work_with_arbitrary_matrix) {
+    std::vector<int> matrix = getRandomMatrix(10, 15);
+
+    ASSERT_NO_THROW(getSequentialOperations(matrix, 10, 15));
+}
+
+TEST(Parallel_Operations_MPI, getParallelOperations_can_work_with_square_matrix) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int>::size_type row_count = 20, column_count = 20;
+    std::vector<int> matrix(row_count * column_count);
+
+    if (rank == 0) {
+        matrix = getRandomMatrix(row_count, column_count);
+    }
+
+    ASSERT_NO_THROW(getParallelOperations(matrix, 20));
+}
+
+TEST(Parallel_Operations_MPI, getParallelOperations_works_correctly) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int>::size_type matrix_size = 18;
+    std::vector<int> matrix(matrix_size * matrix_size);
+
+    if (rank == 0) {
+        matrix = getRandomMatrix(matrix_size, matrix_size);
+    }
+
+    getGaussKernel(2.0);
+    std::vector<int> res = getParallelOperations(matrix, matrix_size);
+
+    if (rank == 0) {
+        std::vector<int> expected_res = getSequentialOperations(matrix, matrix_size, matrix_size);
+
+        ASSERT_EQ(res, expected_res);
+    }
+}
+
+TEST(Parallel_Operations_MPI, boost_test) {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    std::vector<int>::size_type matrix_size = 8192;
+    std::vector<int> matrix(matrix_size * matrix_size);
+
+    if (rank == 0) {
+        matrix = getRandomMatrix(matrix_size, matrix_size);
+    }
+
+    getGaussKernel(2.0);
+
+    auto start_getParallelOperations = MPI_Wtime();
+    std::vector<int> res = getParallelOperations(matrix, matrix_size);
+    auto finish_getParallelOperations = MPI_Wtime();
+
+    if (rank == 0) {
+        auto start_getSequentialOperations = MPI_Wtime();
+        std::vector<int> expected_res = getSequentialOperations(matrix, matrix_size, matrix_size);
+        auto finish_getSequentialOperations = MPI_Wtime();
+
+        auto getSequentialOperations_running_time = finish_getSequentialOperations - start_getSequentialOperations;
+        auto getParallelOperations_running_time = finish_getParallelOperations - start_getParallelOperations;
+        auto acceleration = getSequentialOperations_running_time / getParallelOperations_running_time;
+
+        printf("Running time of sequential algorithm=%lf\nRunning time of parallel algorithm=%lf\n",
+            getSequentialOperations_running_time, getParallelOperations_running_time);
+        printf("Acceleration=%lf\n", acceleration);
+
+        ASSERT_EQ(res, expected_res);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
