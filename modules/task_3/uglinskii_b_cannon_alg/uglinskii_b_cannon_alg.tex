@@ -1,0 +1,710 @@
+\documentclass[12pt, letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english, russian]{babel}
+\usepackage[T2A]{fontenc} 
+\usepackage{tocloft}
+\usepackage{indentfirst}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{ccaption}
+\usepackage{subfig}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{chngpage}
+\usepackage{graphicx,verbatim}
+\usepackage{caption}
+\usepackage{color}
+\usepackage{xcolor}
+\usepackage{listings}
+\setlength{\parindent}{3em}
+\setlength{\parskip}{1em}
+
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\labelenumii}{\arabic{enumi}.\arabic{enumii}}
+\linespread{1.3}
+\DeclareMathOperator{\tr}{tr}
+
+\definecolor{string}{HTML}{c86400}
+\definecolor{comment}{HTML}{008200}
+\definecolor{keyword}{HTML}{1A00FF}
+\lstset{language=C++, 
+        keywordstyle=\color{keyword}\ttfamily\bfseries,
+        commentstyle=\color{comment}\ttfamily\bfseries,
+        stringstyle=\color{string}\ttfamily\bfseries,
+        tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true}
+
+
+\captiondelim{. } 
+\usepackage{geometry}
+\geometry{verbose, a4paper,tmargin=2cm,bmargin=2cm,lmargin=2.5cm,rmargin=1.5cm}
+\allowdisplaybreaks[4]
+\begin{document}
+
+\begin{titlepage}
+\begin{center} 
+Министерство образования и науки Российской Федерации\\
+Федеральное государственное автономное образовательное учреждение  \\
+высшего образования\\
+\textbf{<<Национальный исследовательский\\Нижегородский государственный университет им. Н.И. Лобачевского>>}\\
+\textbf{(ННГУ)}\\[0.5cm]
+\textbf{Институт информационных технологий математики и механики}\\[0.5cm]
+Направление подготовки: <<Фундаментальная информатика и информационные технологиии>>\\
+% <<>>\\[1cm]
+[1cm]
+\textbf{\large ОТЧЁТ ПО ЛАБОРАТОРНОЙ РАБОТЕ} \\[0.6cm]
+\textbf{Тема:}\\
+  \textbf{\large Умножение плотных матриц. Элементы типа double. Блочная схема, алгоритм Кэннона. }\\[2.5cm]
+ 
+\begin{flushright}
+ \begin{minipage}{0.55\textwidth}
+ \begin{flushleft} 
+ \textbf{Выполнил:} \\
+ студент группы 381906-2\\
+ Углинский Богдан Сергеевич\\
+\ \ \ \underline{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ }\\
+   \ \ \ \ \ \ \ \ \ Подпись\\[0.5cm]
+ \textbf{Научный руководитель:}\\
+ доцент кафедры МОСТ,\\
+ кандидат технических наук\\
+ Сысоев Александр Владимирович \\
+ \ \ \ \underline{\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ }\\
+ \ \ \ \ \ \ \ \ \ \ Подпись\\[0.5cm]
+ \end{flushleft} 
+ \end{minipage} 
+\end{flushright}
+ \vfill 
+ 
+  Нижний Новгород \\
+ 2021
+
+ \thispagestyle{empty} 
+
+\end{center}
+\end{titlepage}
+\newpage
+\renewcommand*\contentsname{Оглавление}
+\tableofcontents
+\newpage
+
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Одной из основных операций над матрицами является их перемножение. Эта операция используется практически везде: от компьютерной графики до расчета поверхностей самолетов. Существует множество способов перемножения матриц, например блочные. В данных алгоритмах матрицы разбиваются на блоки, представляющие собой подматрицы исходных матриц, при этом количество подматриц обязательно должно быть полным квадратом. Алгоритм Кэннона принадлежит к числу таких алгоритмов. Его идея заключается в изменении схемы начального распределения блоков перемножаемых матриц между процессорами. Начальная пересылка блоков матриц в процессы выполняется таким образом, чтобы получаемые блоки сразу могли быть перемножены без каких-либо пересылок данных между процессами. При этом подобное распределение блоков может быть организовано таким образом, что перемещение блоков между процессорами в ходе вычислений может осуществляться с использованием более простых коммуникационных операций.
+\newpage
+
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par В данной лабораторной работе необходимо реализовать два алгоритма перемножения матриц: последовательный и параллельный (Кэннона). Далее необходимо провести эксперименты с использованием фреймворка Google Test, для подтверждения корректности работы программы. После этого нужно провести замеры времени работы последовательной и параллельной программы и сравнить полученные результаты. Параллельный алгоритм должен быть реализован с использованием технологии MPI.
+\newpage
+
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Пусть необходимо перемножить две квадратных матрицы $A$ и $B$ размером $N\times N$, а количество блоков по вертикали и горизонтали равно $b$. При этом, для корректного распараллеливания, необходимо чтобы количество процессов $p$ было полным квадратом и $b=\sqrt{p}$. При соблюдении этих условий можно применить алгоритм Кэннона.
+
+Реализация алгоритма Кэннона проводится в 2 этапа:
+\begin{enumerate}
+\itemПервый этап заключается в начальной пересылки блоков между процессами и состоит из следующих шагов:
+    \begin{enumerate}
+    \itemВ каждый процесс $(i, j)$ пересылаются блоки $A_{ij}$ и $B_{ij}$, матрица $C_{ij}$ обнуляется.
+    \itemДля каждой строки $i$ декартовой решетки процессов выполняется циклический сдвиг блоков матрицы A на $(i - 1)$ позиций влево (т. е. в направлении убывания номеров столбцов).
+    \itemДля каждого столбца $j$ декартовой решетки процессов выполняется циклический сдвиг блоков матрицы B на $(j - 1)$ позиций вверх (т. е. в направлении убывания номеров строк).
+    \end{enumerate}
+\itemЗатем запускается цикл из $b$ итераций, в ходе которого выполняются три действия:
+    \begin{enumerate}
+    \itemСодержащиеся в процессе $(i, j)$ блоки матриц $A$ и $B$ перемножаются, и результат прибавляется к
+    матрице $C_{ij}$.
+    \itemДля каждой строки $i$ $(i = 0 , …, q)$ выполняется циклическая пересылка блоков матрицы $A$, содержащихся в каждом процессе $(i, j)$ этой строки, в направлении убывания номеров столбцов;
+    \itemДля каждого столбца $j$ $(j = 0 , …, q)$ выполняется циклическая пересылка блоков матрицы $B$, содержащихся в каждом процессе $(i, j)$ этого столбца, в направлении убывания номеров строк.
+    \end{enumerate}
+После завершения цикла в каждом процессе будет содержаться матрица $C_{ij}$, равная соответствующему блоку произведения $A*B$. Останется переслать эти блоки главному процессу.
+
+\end{enumerate}
+\newpage
+
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Сначала генерируются случайные матрицы на нулевом процессе. После чего проверяются условия для корректного распараллеливания, а именно: число процессов должно быть полным квадратом, размерность матрицы должна делиться нацело на квадратный корень из количества процессов ($N\mod\sqrt{p}=0$). Далее создаётся циклическая декартова решётка (решётка-тор). После создания решётки необходимо провести инициализацию: сначала процесс с рангом 0 отправляет в каждый процесс соответствующий блок $(i, j)$; затем каждый процесс пересылает свой блок матрицы $A$ процессу с координатой по горизонтали меньшей на $(i - 1)$, где $i$ - номер строки, и блок матрицы $B$ процессу с координатой по вертикали меньшей на $(j - 1)$, где $j$ - номер столбца. 
+
+После этого запускается основной цикл программы, в ходе которого подматрицы исходных матриц на каждом процессе сначала перемножаются и результат перемножения складывается с тем, что находится в в локальной матрице $C_{ij}$ на каждом процессе. Затем происходит пересылка блоков согласно схеме описанной в алгоритме, т.е. процесс с координатами $(i,j)$ отправляет локальный блок $A_{ij}$ процессу с $i$ на 1 меньше и блок $B_{ij}$ процессу с $j$ на 1 меньше. После чего происходит повторение цикла $b$ раз, где $b$ - размерность декартовой решётки. В результате работы у каждого процесса хранится своя часть результирующей матрицы $C$. В конце нулевой процесс собирает полученные на каждом процессе подматрицы $C_{ij}$ и конструирует из них результат перемножения, а именно матрицу $C$.
+\newpage
+
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа состоит из 1 заголовочного файла Cannon.h и двух файлов с расширением .cpp: Cannon.cpp и main.cpp
+
+Cannon.h содержит прототипы функций, использующиеся для реализации последовательного алгоритма и алгоритма Кэннона. Также он содержит прототип функций для создания топологии и прототипы функций по генерированию матриц :
+
+\begin{lstlisting}
+double* CreateEasyMatrix(int size);
+double* CreateZeroMatrix(int size);
+double* CreateEmptyMatrix(int size);
+double* CreateRandomMatrix(int size);
+double* SummMatix(int size, double* A, double* B);
+double* SeqMulti(int size, double* A, double* B);
+MPI_Comm CreateTopology(int block_num);
+double* ParallelMulti(int size, double* A, double* B);
+\end{lstlisting}
+Первые 4 функции позволяют создавать различные матрицы, в зависимости от ситуации. В них передаётся размерность матрицы size. В результате работы функция возвращает двумерный массив типа double размером size*size.
+\begin{itemize}
+\item CreateEasyMatrix создаёт матрицу где все строчки одинаковые и выглядят следующим образом: 1, 2, 3, ..., size. 
+\item CreateZeroMatrix создаёт, соответственно, матрицу состоящую только из нулей. 
+\item CreateEmptyMatrix выделяет память под матрицу размером size*size. 
+\item CreateRandomMatrix создаёт случайную матрицу вещественных чисел, элементы которой принадлежат отрезку $[-10;10)$ и распределены по закону :$ P(x|a,b) = \frac{1}{b-a}$. 
+\item SummMatix складывает две матрицы. 
+\item SeqMulti производит последовательное перемножение двух матрицы. 
+\item CreateTopology создаёт периодическую декартову решётку (решётка-тор). 
+\item ParallelMulti производит параллельное перемножение двух матриц $A$ и $B$ и возвращает результат перемножения.
+\end{itemize}
+В файле Cannon.cpp содержатся реализации описанных функций.
+В main.cpp содержатся гугл тесты.
+\newpage
+
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+\par Для подтверждения корректности использовался фреймворк Google Test, предоставляющий удобный интерфейс для тестирования написанной программы. Было написано 5 тестов для подтверждения корректности работы программы. Первый тест проверяет, что функция для последовательного произведения матриц работает корректно, чтобы в других тестах можно было опираться на результат её работы, как правильный. Для этого результат её работы был сверен с заранее записанным и посчитанным ответом. Во втором тесте была проверена работы параллельной программы на тех же матрицах, что и в предыдущем тесте. Последующие тесты создают случайные матрицы заданных размеров, а именно $10\times10, 100\times100, 500\times500$, производят два перемножения (последовательное и параллельное) и сравнивают результаты.  
+
+Успешное прохождение всех тестов, проведённых множество раз (некоторые тесты проводились по 10000 раз), говорит о корректности работы программы.
+\newpage
+
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+\par  Конфигурация системы: 
+\begin{itemize}
+    \itemПроцессор: Intel Core i5-3340  3,30 GHz; Количество ядер: 4; Количество потоков 4.
+    \item ОЗУ: 8,00ГБ Dual-Channel DDR3 @ 667MHz (9-9-9-24).
+    \item Операционная система: Windows 10 Home x64.
+\end{itemize}
+
+Эксперименты проводились на 4 процессах для того, чтобы корректно работало распараллеливание.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов перемножения матриц}
+\centering
+\begin{tabular}{| p{3cm} | p{5cm} | p{5cm} | p{2cm} |}
+\hline
+Размерность матрицы & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+100        & 0.0009443        & 0.0007731     & 1.22145       \\
+500        & 0.151542        & 0.0469968     &  3.22453       \\
+1000       & 7.95994        & 0.936895     & 8.49608       \\
+1500       &  27.4332        & 7.37122     & 3.72167      \\
+2000       & 75.8392       & 20.342     & 3.72821       \\
+\hline
+\end{tabular}
+\end{table}
+\newpage
+
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+По результатам экспериментов можно сделать следующие выводы. Вначале ускорение было незначительным. Потом оно начало увеличиваться и достигло своего пика на матрицах размером $1000\times 1000$. Далее последовало понижение производительно и асимптотическое приближение к некоему фиксированному значению. Это объясняется устройством машин по архитектуре фон Неймана, а именно нелинейностью памяти. Из-за того, что память в современных компьютерах иерархична, при вычислениях данные перемещаются между кэшами различных уровней и оперативной памятью, вызывая тем самым замедление работы. При большом размере данных невозможно провести алгебраические операции сразу и возникает потребность в обработки блоков данных. В итоге возникает много операций перемещения данных между ОЗУ и кэшем. А теперь спроецируем это на полученные ранее результаты экспериментов. При небольшом размере матриц $100\times 100$ прирост скорости незначительный из-за большой латентности (много времени уходит на подготовку данных). При росте количества элементов в матрице возрастает и прирост скорости причём многократно: на матрицах $500\times500$  ускорение около 3.2 , а при $1000\times 1000$ достигает практически 8.5. Это объясняется описанными выше механизмами с перемещением данных между ОЗУ и кэшем. Т.е. количество данных поделенное на 4 процесса идеально помещается в кэш и за счёт этого достигается максимальное ускорение. При последующем росте размерности ускорение уменьшается. Это связанно с тем, что, даже, при обработке на каждом процессе четверти матрицы, количество данных всё равно не помещается в кэш и, как следствие, ускорение уменьшается по сравнению с матрицами $1000\times 1000$.
+\newpage
+
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе данной лабораторной работы была разработана программа для последовательно и параллельного алгоритма перемножения матриц. В качестве параллельного алгоритма выступает алгоритм Кэннона. Программы была протестирована на корректность работы с помощью фреймворка Google Test. Также были проведены эксперименты по сравнению времени работы параллельной и последовательно программы и сделаны соответствующие выводы. Параллельная программа, как и ожидалось, на матрицах больших размерностей показывает себя лучше чем параллельная, однако обладает определённой спецификой: в начале наблюдает быстрой рост производительности, после чего происходит её уменьшение до некоторого значения. Однако, параллельная программа по прежнему работает быстрее, чем последовательная. 
+\newpage
+
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+    \itemННГУ им. Лобачевского Центр суперкомпьютерных технологий-
+    Параллельный алгоритм Кэннона – [Электронный ресурс].– Режим доступа: http://www.hpcc.unn.ru/?dir=883
+\end{enumerate}
+\newpage
+
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+Cannon.h
+\begin{lstlisting}
+
+#ifndef MODULES_TASK_3_UGLINSKII_B_CANNON_ALG_CANNON_H_
+#define MODULES_TASK_3_UGLINSKII_B_CANNON_ALG_CANNON_H_
+#include <mpi.h>
+
+double* CreateEasyMatrix(int size);
+double* CreateZeroMatrix(int size);
+double* CreateEmptyMatrix(int size);
+double* CreateRandomMatrix(int size);
+double* SummMatix(int size, double* A, double* B);
+double* SeqMulti(int size, double* A, double* B);
+MPI_Comm CreateTopology(int block_num);
+double* ParallelMulti(int size, double* A, double* B);
+
+#endif  // MODULES_TASK_3_UGLINSKII_B_CANNON_ALG_CANNON_H_
+
+\end{lstlisting}
+
+Cannon.cpp
+\begin{lstlisting}
+// Copyright 2021 Uglinskii Bogdan
+#include "../../../modules/task_3/uglinskii_b_cannon_alg/Cannon.h"
+#include <random>
+#include <ctime>
+
+double* CreateZeroMatrix(int size) {
+  double* matrix = new double[size * size];
+  for (int i = 0; i < size * size; i++) {
+    matrix[i] = 0;
+  }
+  return matrix;
+}
+
+double* CreateEmptyMatrix(int size) {
+  double* matrix = new double[size * size];
+  return matrix;
+}
+double* CreateEasyMatrix(int size) {
+  double* matrix = new double[size * size];
+
+  for (int i = 0; i < size * size; i++) {
+    matrix[i] = 1 + i % size;
+  }
+  return matrix;
+}
+
+double* CreateRandomMatrix(int size) {
+  std::mt19937 gen(time(0));
+  std::uniform_real_distribution<> urd(-10, 10);
+  double* matrix = new double[size * size];
+  for (int i = 0; i < size*size; i++) {
+    matrix[i] = urd(gen);
+  }
+  return matrix;
+}
+
+double* SummMatix(int size, double* A, double* B) {
+  double* C = CreateZeroMatrix(size);
+  for (int i = 0; i < size * size; i++) {
+    C[i] = A[i] + B[i];
+  }
+  return C;
+}
+
+double* SeqMulti(int size, double* A, double* B) {
+  double* C = CreateZeroMatrix(size);
+
+  for (int i = 0; i < size; i++) {
+    for (int j = 0; j < size; j++) {
+      for (int l = 0; l < size; l++) {
+        C[i * size + j] += A[i * size + l] * B[l * size + j];
+      }
+    }
+  }
+  return C;
+}
+
+MPI_Comm CreateTopology(int block_num) {
+  int ProcNum;
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  if (block_num > 0 && (block_num * block_num > ProcNum)) {
+    return MPI_COMM_NULL;
+  }
+
+  int dims[2] = {block_num, block_num};
+  int periods[2] = {1, 1};
+  int reorder = 0;
+  MPI_Comm new_comm;
+  MPI_Cart_create(MPI_COMM_WORLD, 2, dims, periods, reorder, &new_comm);
+
+  return new_comm;
+}
+
+double* ParallelMulti(int size, double* A, double* B) {
+  int ProcNum, ProcRank;
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+  if ((static_cast<int>(std::sqrt(ProcNum)) *
+           static_cast<int>(std::sqrt(ProcNum)) !=
+       ProcNum) ||
+      (size % static_cast<int>(sqrt(ProcNum)) != 0)) {
+    if (ProcRank ==
+        0) {
+      return SeqMulti(size, A, B);
+    } else {
+      return CreateZeroMatrix(size);
+    }
+  }
+
+  double* C = CreateZeroMatrix(size);
+
+  int block_num = static_cast<int>(std::sqrt(ProcNum));
+  int block_size = size / block_num;
+
+  int global_sizes[2] = {size, size};
+  int subsizes[2] = {block_size, block_size};
+  int starts[2] = {0, 0};
+
+  MPI_Datatype type, resized_type;
+  MPI_Type_create_subarray(2, global_sizes, subsizes, starts, MPI_ORDER_C,
+                           MPI_DOUBLE, &type);
+  MPI_Type_create_resized(type, 0, block_size * sizeof(double), &resized_type);
+  MPI_Type_commit(&resized_type);
+
+  int* send_counts = new int[ProcNum];
+  int* displs = new int[ProcNum];
+
+  if (ProcRank == 0) {
+    for (int i = 0; i < ProcNum; i++) {
+      send_counts[i] = 1;
+    }
+    int cur_disp = 0;
+    for (int i = 0; i < block_num; i++) {
+      for (int j = 0; j < block_num; j++) {
+        displs[i * block_num + j] = cur_disp;
+        cur_disp += 1;
+      }
+      cur_disp += (block_size - 1) * block_num;
+    }
+  }
+
+  MPI_Comm grid_comm = CreateTopology(block_num);
+
+  double* local_A = CreateEmptyMatrix(block_size);
+  double* local_B = CreateEmptyMatrix(block_size);
+
+  MPI_Scatterv(&(A[0]), send_counts, displs, resized_type, &(local_A[0]),
+               (size * size) / ProcNum, MPI_DOUBLE, 0, grid_comm);
+  MPI_Scatterv(&(B[0]), send_counts, displs, resized_type, &(local_B[0]),
+               (size * size) / ProcNum, MPI_DOUBLE, 0, grid_comm);
+
+  int my_coords[2];
+  MPI_Cart_coords(grid_comm, ProcRank, 2, my_coords);
+
+  MPI_Status status;
+  int L, R;
+  MPI_Cart_shift(grid_comm, 1, my_coords[0], &L, &R);
+  MPI_Sendrecv_replace(&(local_A[0]), block_size * block_size, MPI_DOUBLE, L, 1,
+                       R, 1, grid_comm, &status);
+
+  int UP, D;
+  MPI_Cart_shift(grid_comm, 0, my_coords[1], &UP, &D);
+  MPI_Sendrecv_replace(&(local_B[0]), block_size * block_size, MPI_DOUBLE, UP,
+                       1, D, 1, grid_comm, &status);
+
+  double* local_C = CreateZeroMatrix(block_size);
+  double* temp_res = CreateZeroMatrix(block_size);
+
+  for (int q = 0; q < block_num; q++) {
+    temp_res = SeqMulti(block_size, local_A, local_B);
+
+    local_C = SummMatix(block_size, local_C, temp_res);
+
+    MPI_Cart_shift(grid_comm, 1, 1, &L, &R);
+    MPI_Cart_shift(grid_comm, 0, 1, &UP, &D);
+
+    MPI_Sendrecv_replace(&(local_A[0]), block_size * block_size, MPI_DOUBLE, L,
+                         1, R, 1, grid_comm, &status);
+    MPI_Sendrecv_replace(&(local_B[0]), block_size * block_size, MPI_DOUBLE, UP,
+                         1, D, 1, grid_comm, &status);
+  }
+  MPI_Gatherv(&(local_C[0]), size * size / ProcNum, MPI_DOUBLE, &(C[0]),
+              send_counts, displs, resized_type, 0, grid_comm);
+  return C;
+}
+
+\end{lstlisting}
+
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Uglinskii Bogdan
+#include <gtest/gtest.h>
+#include <gtest-mpi-listener.hpp>
+#include "./Cannon.h"
+
+TEST(Cannon_MPI, Test_Seq_Multiply_Fixed) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  if (ProcRank == 0) {
+    int size = 6;
+    int exp_C[] = {21, 42, 63, 84, 105, 126, 21, 42, 63, 84, 105, 126,
+                   21, 42, 63, 84, 105, 126, 21, 42, 63, 84, 105, 126,
+                   21, 42, 63, 84, 105, 126, 21, 42, 63, 84, 105, 126};
+    double* A = CreateEasyMatrix(size);
+    double* B = CreateEasyMatrix(size);
+    double* C = SeqMulti(size, A, B);
+
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(exp_C[i], C[i], 0.0001);
+    }
+  }
+}
+
+TEST(Cannon_MPI, Test_Parallel_Multiply_Fixed) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 6;
+  double* A = nullptr;
+  double* B = nullptr;
+  if (ProcRank == 0) {
+    A = CreateEasyMatrix(size);
+    B = CreateEasyMatrix(size);
+  }
+
+  double* C = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    int exp_C[] = {21, 42, 63, 84, 105, 126, 21, 42, 63, 84, 105, 126,
+                   21, 42, 63, 84, 105, 126, 21, 42, 63, 84, 105, 126,
+                   21, 42, 63, 84, 105, 126, 21, 42, 63, 84, 105, 126};
+
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(exp_C[i], C[i], 0.0001);
+    }
+  }
+}
+
+TEST(Cannon_MPI, Test_Parallel_Multiply_Random_10) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 10;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C_seq = nullptr;
+
+  double t1, t2;
+  double t_seq, t_parallel;
+  if (ProcRank == 0) {
+    A = CreateRandomMatrix(size);
+    B = CreateRandomMatrix(size);
+    t1 = MPI_Wtime();
+    C_seq = SeqMulti(size, A, B);
+    t2 = MPI_Wtime();
+    t_seq = t2 - t1;
+  }
+
+  if (ProcRank == 0) {
+    t1 = MPI_Wtime();
+  }
+  double* C_par = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    t2 = MPI_Wtime();
+    t_parallel = t2 - t1;
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(C_seq[i], C_par[i], 0.0001);
+    }
+
+    std::cout << "--Seq = " << t_seq << "\n"
+              << "==Parallel = " << t_parallel << std::endl;
+    std::cout << "Acceleration = " << t_seq / t_parallel << std::endl;
+  }
+}
+
+TEST(Cannon_MPI, Test_Parallel_Multiply_Random_100) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 100;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C_seq = nullptr;
+
+  double t1, t2;
+  double t_seq, t_parallel;
+  if (ProcRank == 0) {
+    A = CreateRandomMatrix(size);
+    B = CreateRandomMatrix(size);
+    t1 = MPI_Wtime();
+    C_seq = SeqMulti(size, A, B);
+    t2 = MPI_Wtime();
+    t_seq = t2 - t1;
+  }
+
+  if (ProcRank == 0) {
+    t1 = MPI_Wtime();
+  }
+  double* C_par = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    t2 = MPI_Wtime();
+    t_parallel = t2 - t1;
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(C_seq[i], C_par[i], 0.0001);
+    }
+
+    std::cout << "--Seq = " << t_seq << "\n"
+              << "==Parallel = " << t_parallel << std::endl;
+    std::cout << "Acceleration = " << t_seq / t_parallel << std::endl;
+  }
+}
+
+TEST(Cannon_MPI, Test_Parallel_Multiply_Random_500) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 500;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C_seq = nullptr;
+
+  double t1, t2;
+  double t_seq, t_parallel;
+  if (ProcRank == 0) {
+    A = CreateRandomMatrix(size);
+    B = CreateRandomMatrix(size);
+    t1 = MPI_Wtime();
+    C_seq = SeqMulti(size, A, B);
+    t2 = MPI_Wtime();
+    t_seq = t2 - t1;
+  }
+
+  if (ProcRank == 0) {
+    t1 = MPI_Wtime();
+  }
+  double* C_par = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    t2 = MPI_Wtime();
+    t_parallel = t2 - t1;
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(C_seq[i], C_par[i], 0.0001);
+    }
+
+    std::cout << "--Seq = " << t_seq << "\n"
+              << "==Parallel = " << t_parallel << std::endl;
+    std::cout << "Acceleration = " << t_seq / t_parallel << std::endl;
+  }
+}
+
+TEST(Cannon_MPI, Test_Parallel_Multiply_Random_1000) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 1000;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C_seq = nullptr;
+
+  double t1, t2;
+  double t_seq, t_parallel;
+  if (ProcRank == 0) {
+    A = CreateRandomMatrix(size);
+    B = CreateRandomMatrix(size);
+    t1 = MPI_Wtime();
+    C_seq = SeqMulti(size, A, B);
+    t2 = MPI_Wtime();
+    t_seq = t2 - t1;
+  }
+
+  if (ProcRank == 0) {
+    t1 = MPI_Wtime();
+  }
+  double* C_par = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    t2 = MPI_Wtime();
+    t_parallel = t2 - t1;
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(C_seq[i], C_par[i], 0.0001);
+    }
+
+    std::cout << "--Seq = " << t_seq << "\n"
+              << "==Parallel = " << t_parallel << std::endl;
+    std::cout << "Acceleration = " << t_seq / t_parallel << std::endl;
+  }
+}
+TEST(Cannon_MPI, Test_Parallel_Multiply_Random_1500) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 1500;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C_seq = nullptr;
+
+  double t1, t2;
+  double t_seq, t_parallel;
+  if (ProcRank == 0) {
+    A = CreateRandomMatrix(size);
+    B = CreateRandomMatrix(size);
+    t1 = MPI_Wtime();
+    C_seq = SeqMulti(size, A, B);
+    t2 = MPI_Wtime();
+    t_seq = t2 - t1;
+  }
+
+  if (ProcRank == 0) {
+    t1 = MPI_Wtime();
+  }
+  double* C_par = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    t2 = MPI_Wtime();
+    t_parallel = t2 - t1;
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(C_seq[i], C_par[i], 0.0001);
+    }
+
+    std::cout << "--Seq = " << t_seq << "\n"
+              << "==Parallel = " << t_parallel << std::endl;
+    std::cout << "Acceleration = " << t_seq / t_parallel << std::endl;
+  }
+}
+
+TEST(Cannon_MPI, Test_Parallel_Multiply_Random_2000) {
+  int ProcRank, ProcNum;
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+
+  int size = 2000;
+  double* A = nullptr;
+  double* B = nullptr;
+  double* C_seq = nullptr;
+
+  double t1, t2;
+  double t_seq, t_parallel;
+  if (ProcRank == 0) {
+    A = CreateRandomMatrix(size);
+    B = CreateRandomMatrix(size);
+    t1 = MPI_Wtime();
+    C_seq = SeqMulti(size, A, B);
+    t2 = MPI_Wtime();
+    t_seq = t2 - t1;
+  }
+
+  if (ProcRank == 0) {
+    t1 = MPI_Wtime();
+  }
+  double* C_par = ParallelMulti(size, A, B);
+  if (ProcRank == 0) {
+    t2 = MPI_Wtime();
+    t_parallel = t2 - t1;
+    for (int i = 0; i < size * size; i++) {
+      ASSERT_NEAR(C_seq[i], C_par[i], 0.0001);
+    }
+
+    std::cout << "--Seq = " << t_seq << "\n"
+              << "==Parallel = " << t_parallel << std::endl;
+    std::cout << "Acceleration = " << t_seq / t_parallel << std::endl;
+  }
+}
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
