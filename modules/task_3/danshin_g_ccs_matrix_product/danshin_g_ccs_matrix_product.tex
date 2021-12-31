@@ -1,0 +1,934 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{float}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=2,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Умножение разреженных матриц. Элементы типа double. Формат хранения матрицы – столбцовый (CCS)»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Даньшин Г. В. \\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\clearpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+
+\par Разреженные матрицы - матрицы с преимущественно нулевыми элементами - часто возникают при решении, например, дифференциальных уравнений в частых производных. Для представления и обработки таких матриц с помощью компьютера часто бывает полезно использовать специальные алгоритмы и структуры данных, которые учитывают разреженную структуру матрицы. Одной из таких структур является формат хранения CCS (compressed column storage), который предполагает хранение только ненулевых элементов, номеров их строк и порядковых номеров элементов, с которых начинается соответствующий столбец. Однако, для умножения матриц, хранящихся в таком формате, необходимо использовать специальный алгоритм, учитывающий формат хранения.
+
+\clearpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+
+\par В данной лабораторной работе необходимо разработать последовательную и параллельную версию алгоритма, позволяющего производить умножение матриц, хранящихся в формате CCS, провести тестирование корректности разработанных алгоритмов и сравнение их времени работы.
+\par Тестирование производится с помощью фреймворка GoogleTest.
+\par Параллельный алгоритм реализован при помощи технологии MPI.
+
+\clearpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+
+\par Разреженное представление матриц вносит ряд требований к разрабатываемому алгоритму:
+\begin{itemize}
+\item Необходимо уметь выделять соответствующие строку и столбец в данных матрицах. При использовании формата CCS выделение столбца не составляет труда, однако выделение строки - сложная задача. Одним из ее решений является представление матрицы в формате CRS (compressed row storage), в котором вместо номеров строк ненулевых элементов хранятся их номера столбцов и вместо номеров элементов, начинающих столбцы, хранятся номера элементов, начинающих строки. Алгоритм изменения формата хранения аналогичен алгоритму транспонирования матрицы. Именно он реализован в данной работе.
+\item При нахождении скалярного произведения соответствующих строки и столбца необходимо учитывать, что хранятся только ненулевые элементы, соответственно, необходимо находить произведения только элементов, у которых совпадает номер соответствующих столбца и строки.
+\item Так как в данном формате элементы хранятся упорядоченно, то при заполнении итоговой мтарицы необходимо избежать перепаковок. Таким образом итоговая матрица должна заполняться последовательно по столбцам.
+\end{itemize}
+
+\clearpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+
+\par Процесс с рангом 0 преобразует первую матрицу в строковый формат хранения, передает получившуюся структуру всем процессам и распределяет все элементы второй матрицы поровну между всеми процессами. Количество элементов второй матрицы, полученных каждым процессом равно \( {count}_{atomic} = \frac{\text{количество элементов во второй матрице}}{\text{количество процессов}} \). Если при делении образуется ненулевой остаток, равный \( rem \), то каждый из первых \( rem \) процессов получает на один элемент больше. При распределении элементов второй матрицы каждый процесс также получает номера их строк и массив номеров начал столбцов, из которых создается новая матрица, являющаяся частью первоначальной.
+\par Далее в каждом процессе вызывается последовательная версия алгоритма для первой матрицы и полученной части второй матрицы. Полученные результаты их умножения возвращаются в первый процесс, в котором происходит их обработка и создание итоговой матрицы.
+\clearpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+
+\par Программа состоит из заголовочного файла ccs\_matrix\_product.hh и двух файлов исходного кода ccs\_matrix\_product.cc и main.cc.
+\par В заголовочном файле находятся прототипы функций для генерации случайной матрицы в формате CCS, последовательного и параллельного вычисления произведения разреженных матриц, хранящихся в формате CCS, а также структуры данных для хранения матриц формата CCS и CRS.
+\par Прототип функции для генерации случайной матрицы:
+\begin{lstlisting}
+CCSMatrix* GenerateRandomMatrix(double g, int row_count, int column_count);
+\end{lstlisting}
+Первым параметром функции является коэффициент заполнения, вторым - количество строк генерируемой матрицы, третьим - количество строк.
+\par Прототип функции для последовательного алгоритма:
+\begin{lstlisting}
+CCSMatrix* MatrixProduct(CCSMatrix* matrix1, CCSMatrix* matrix2);
+\end{lstlisting}
+Первым параметром функции является первая матрица - сомножитель, вторым - вторая матрица - сомножитель.
+\par Прототип функции для параллельного алгоритма:
+\begin{lstlisting}
+CCSMatrix* MatrixProductParallel(CCSMatrix* matrix1, CCSMatrix* matrix2);
+\end{lstlisting}
+Входные параметры данной функции совпадают с входными параметрами функции для последовательного алгоритма.
+\par В файле исходного кода ccs\_matrix\_product.cc содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+
+\clearpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+
+\par Для тестирования корректности разработанного алгоритма были разработаны 5 тестов с использованием фреймворка GoogleTest. В каждом тесте генерируются две случайные матрицы с заданными параметрами (коэффициент заполнения, количество строк и столбцов). Далее в процессе с рангом 0 производится вызов функции для последовательного вычисления произведения сгенерированных матриц. После этого во всех процессах производится вызов функции для параллельного вычисления произведения. Полученные результаты сравниваются с помощью реализованного в структуре хранения оператора сравнения, и выводятся временные результаты выполнения алгоритмов.
+
+\clearpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+
+\par Вычислительные эксперименты для оценки эффективности работы параллельного алгоритма проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz 8C/16T;
+\item Оперативная память: 2x16 ГБ (DDR4), 2-channel, 3000 МГц, Latency: 16-18-18-32;
+\item Операционная система: Windows 11 Pro.
+\end{itemize}
+\par Сборка проекта производилась с помощью утилиты cmake, компилятора Visual Studio 17 2022 версии 19.30.30705.0 в конфигурации Release.
+\par Используемая реализация MPI: Microsoft MPI версии 10.1.2.
+
+\begin{table}[H]
+    \caption{Результаты вычислительных экспериментов в тесте 1: матрицы 100\(\times\)100 с коэффициентами заполнения 0.2}
+    \centering
+    \begin{tabular}{|m{2cm}|m{5cm}|m{5cm}|m{2cm}|}
+        \toprule
+        Количество процессов & Время работы последовательного алгоритма (с) & Время работы параллельного алгоритма (с) & Ускорение \\
+        \midrule
+        1  & 0.0016814 & 0.0018171 & 0.925321 \\
+        2  & 0.0017386 & 0.0012897 & 1.34807  \\
+        3  & 0.0017452 & 0.0011348 & 1.53789  \\
+        4  & 0.0016629 & 0.0011563 & 1.43812  \\
+        6  & 0.0016978 & 0.0011604 & 1.46312  \\
+        8  & 0.0017457 & 0.0014718 & 1.1861   \\
+        12 & 0.0016988 & 0.0016922 & 1.0039   \\
+        16 & 0.001743  & 0.0024779 & 0.703418 \\
+        32 & 0.0018569 & 0.0049056 & 0.378527 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \caption{Результаты вычислительных экспериментов в тесте 2: матрицы 100\(\times\)100 с коэффициентами заполнения 0.4 и 0.3}
+    \centering
+    \begin{tabular}{|m{2cm}|m{5cm}|m{5cm}|m{2cm}|}
+        \toprule
+        Количество процессов & Время работы последовательного алгоритма (с) & Время работы параллельного алгоритма (с) & Ускорение \\
+        \midrule
+        1  & 0.0028072 & 0.0030542 & 0.919128 \\
+        2  & 0.0028325 & 0.001821  & 1.55546  \\
+        3  & 0.0028756 & 0.0013588 & 2.11628  \\
+        4  & 0.0028192 & 0.0011727 & 2.40402  \\
+        6  & 0.0027913 & 0.0010232 & 2.72801  \\
+        8  & 0.002856  & 0.0010118 & 2.82269  \\
+        12 & 0.0028075 & 0.0009931 & 2.82701  \\
+        16 & 0.0029172 & 0.0011766 & 2.47935  \\
+        32 & 0.0028195 & 0.0035953 & 0.784218 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \caption{Результаты вычислительных экспериментов в тесте 3: матрицы 1000\(\times\)100 и 100\(\times\)1000 с коэффициентами заполнения 0.2}
+    \centering
+    \begin{tabular}{|m{2cm}|m{5cm}|m{5cm}|m{2cm}|}
+        \toprule
+        Количество процессов & Время работы последовательного алгоритма (с) & Время работы параллельного алгоритма (с) & Ускорение \\
+        \midrule
+        1  & 0.146431 & 0.159408  & 0.918591 \\
+        2  & 0.181593 & 0.0939395 & 1.93309  \\
+        3  & 0.14729  & 0.0664342 & 2.21709  \\
+        4  & 0.147968 & 0.0536636 & 2.75732  \\
+        6  & 0.148663 & 0.0450638 & 3.29895  \\
+        8  & 0.149508 & 0.0416264 & 3.59167  \\
+        12 & 0.161778 & 0.0377984 & 4.28004  \\
+        16 & 0.151997 & 0.0395897 & 3.83929  \\
+        32 & 0.159358 & 0.0473108 & 3.36832  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \caption{Результаты вычислительных экспериментов в тесте 4: матрицы 1000\(\times\)1000 с коэффициентами заполнения 0.2}
+    \centering
+    \begin{tabular}{|m{2cm}|m{5cm}|m{5cm}|m{2cm}|}
+        \toprule
+        Количество процессов & Время работы последовательного алгоритма (с) & Время работы параллельного алгоритма (с) & Ускорение \\
+        \midrule
+        1  & 1.46143 & 1.47497  & 0.990823 \\
+        2  & 1.4646  & 0.758909 & 1.92987  \\
+        3  & 1.46504 & 0.519846 & 2.81821  \\
+        4  & 1.45536 & 0.38652  & 3.76527  \\
+        6  & 1.46596 & 0.27949  & 5.24513  \\
+        8  & 1.48624 & 0.246137 & 6.03828  \\
+        12 & 1.52958 & 0.184829 & 8.27564  \\
+        16 & 1.469   & 0.182214 & 8.06194  \\
+        32 & 1.46028 & 0.262941 & 5.55364  \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \caption{Результаты вычислительных экспериментов в тесте 5: матрицы 2000\(\times\)3000 и 3000\(\times\)1000 с коэффициентами заполнения 0.0001}
+    \centering
+    \begin{tabular}{|m{2cm}|m{5cm}|m{5cm}|m{2cm}|}
+        \toprule
+        Количество процессов & Время работы последовательного алгоритма (с) & Время работы параллельного алгоритма (с) & Ускорение \\
+        \midrule
+        1  & 0.0046075 & 0.004719  & 0.976372 \\
+        2  & 0.0050329 & 0.0027339 & 1.84092  \\
+        3  & 0.0045847 & 0.0019432 & 2.35936  \\
+        4  & 0.0047269 & 0.0015339 & 3.08162  \\
+        6  & 0.0048281 & 0.0011528 & 4.18815  \\
+        8  & 0.004661  & 0.0013605 & 3.42595  \\
+        12 & 0.0046492 & 0.0013605 & 3.42508  \\
+        16 & 0.0047582 & 0.0012426 & 3.82923  \\
+        32 & 0.0048473 & 0.0140657 & 0.344618 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\clearpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+
+\par Из данных, полученных в результате экспериментов, можно сделать вывод о том, что в большинстве случаев параллельный алгоритм работает быстрее, чем последовательный, в некоторых случаях достигая ускорений, достаточно близких к количеству запущенных процессов. Во всех тестах, начиная с некоторого количества процессов, можно заметить падение производительности. Это связано с тем, что матрицы генерируются только в одном процессе, и затем передаются во все остальные. Соответственно, чем больше процесов, тем больше требуется отправить данных, а также тем больше требуется произвести сопутствубщих расчетов для разбиения второй матрицы.
+
+\clearpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+
+\par В ходе данной работы были реализованы последовательная и параллельная версия умножения, а также структура хранения разреженных матриц в формате CCS (column compressed storage). Были проведены тесты корректности и производительности разработанных алгоритмов, доказавшие эффективность параллельного алгоритма по сравнению с последовательным.
+
+\clearpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+
+\begin{enumerate}
+\item Гергель В. П. Теория и практика параллельных вычислений: учебное пособие. М. : Интернет-Университет Информационных Технологий; БИНОМ. Лаборатория знаний, 2016. - 423 с.
+\item Академия Intel: Intel Parallel Programming Professional (Introduction). Лекция 7 - Электронный ресурс. URL: \url{https://intuit.ru/studies/courses/4447/983/lecture/14931} (дата обращения: 02.11.2021).
+\end{enumerate} 
+
+\clearpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+ccs\_matrix\_product.hh
+
+\begin{lstlisting}
+// Copyright 2021 Gleb "belgad" Danshin
+#ifndef MODULES_TASK_3_DANSHIN_G_CCS_MATRIX_PRODUCT_CCS_MATRIX_PRODUCT_HH_
+#define MODULES_TASK_3_DANSHIN_G_CCS_MATRIX_PRODUCT_CCS_MATRIX_PRODUCT_HH_
+
+#include <vector>
+
+struct CCSMatrix {
+int row_count;
+int column_count;
+std::vector<double> values;
+std::vector<int> rows;
+std::vector<int> pointers;
+
+CCSMatrix();
+CCSMatrix(const int& row_count, const int& column_count, const std::vector<double>& values, const std::vector<int>& rows, const std::vector<int>& pointers);
+
+bool operator==(const CCSMatrix &other);
+};
+
+struct CRSMatrix {
+int row_count;
+int column_count;
+std::vector<double> values;
+std::vector<int> columns;
+std::vector<int> pointers;
+
+CRSMatrix(const int& row_count, const int& column_count, const std::vector<double>& values, const std::vector<int>& columns, const std::vector<int>& pointers);
+CRSMatrix(const CCSMatrix& matrix);
+CRSMatrix(const int& row_count, const int& column_count, const int& length);
+};
+
+CCSMatrix* GenerateRandomMatrix(double g, int row_count, int column_count);
+CCSMatrix* MatrixProduct(CCSMatrix* matrix1, CCSMatrix* matrix2);
+CCSMatrix* MatrixProduct(CRSMatrix* matrix1, CCSMatrix* matrix2);
+CCSMatrix* MatrixProductParallel(CCSMatrix* matrix1, CCSMatrix* matrix2);
+
+#endif  // MODULES_TASK_3_DANSHIN_G_CCS_MATRIX_PRODUCT_CCS_MATRIX_PRODUCT_HH_
+\end{lstlisting}
+
+ccs\_matrix\_product.cc
+
+\begin{lstlisting}
+// Copyright 2021 Gleb "belgad" Danshin
+#include <mpi.h>
+
+#include <random>
+#include <iostream>
+
+#include "../../../modules/task_3/danshin_g_ccs_matrix_product/ccs_matrix_product.hh"
+
+CCSMatrix::CCSMatrix() : row_count(0), column_count(0), values(std::vector<double>(0)), rows(std::vector<int>(0)), pointers(std::vector<int>(0)) {}
+
+CCSMatrix::CCSMatrix(const int& row_count, const int& column_count, const std::vector<double>& values, const std::vector<int>& rows, const std::vector<int>& pointers) : row_count(row_count), column_count(column_count), values(values), rows(rows), pointers(pointers) {}
+
+bool CCSMatrix::operator==(const CCSMatrix& other) {
+    bool a = this->row_count == other.row_count
+        && this->column_count == other.column_count
+        && this->pointers == other.pointers
+        && this->rows == other.rows
+        && this->values.size() == other.values.size(),
+        b = true;
+    if (a)
+    for (size_t i = 0; i < this->values.size() && (b &= fabs(this->values[i] - other.values[i]) < 0.00001); ++i) {}
+    return (a && b);
+}
+
+CRSMatrix::CRSMatrix(const int& row_count, const int& column_count, const std::vector<double>& values, const std::vector<int>& columns, const std::vector<int>& pointers) : row_count(row_count), column_count(column_count), values(values), columns(columns), pointers(pointers) {}
+
+CRSMatrix::CRSMatrix(const CCSMatrix& matrix) {
+    this->row_count = matrix.row_count;
+    this->column_count = matrix.column_count;
+    this->values.resize(matrix.values.size());
+    this->columns.resize(matrix.values.size());
+    this->pointers.assign(this->row_count + 1, 0);
+    std::vector<std::vector<double>> n_values(this->row_count);
+    std::vector<std::vector<int>> n_columns(this->row_count);
+    for (int i = 1; i <= matrix.column_count; ++i) {
+    for (int j = matrix.pointers[i - 1]; j < matrix.pointers[i]; ++j) {
+        n_values[matrix.rows[j]].push_back(matrix.values[j]);
+        n_columns[matrix.rows[j]].push_back(i - 1);
+    }
+    }
+    for (int i = 0; i < this->row_count; ++i) {
+    std::copy(n_values[i].begin(), n_values[i].end(), this->values.begin() + this->pointers[i]);
+    std::copy(n_columns[i].begin(), n_columns[i].end(), this->columns.begin() + this->pointers[i]);
+    this->pointers[i + 1] = this->pointers[i] + n_values[i].size();
+    }
+}
+
+CRSMatrix::CRSMatrix(const int& row_count, const int& column_count, const int& length) : row_count(row_count), column_count(column_count), values(length), columns(length), pointers(row_count + 1) {}
+
+CCSMatrix* GenerateRandomMatrix(double g, int row_count, int column_count) {
+    CCSMatrix* random_matrix = new CCSMatrix;
+    std::random_device random_device;
+    std::mt19937 random_engine(random_device());
+    std::uniform_real_distribution<double> prob_distr(0.0, 1.0);
+    std::uniform_real_distribution<double> values_distr(1.0, 1000.0);
+
+    random_matrix->row_count = row_count;
+    random_matrix->column_count = column_count;
+    random_matrix->pointers.resize(column_count + 1);
+
+    for (int i = 0; i < column_count;) {
+    int point = 0;
+    for (int j = 0; j < row_count; ++j) {
+        if (prob_distr(random_engine) < g) {
+        random_matrix->values.push_back(values_distr(random_engine));
+        random_matrix->rows.push_back(j);
+        ++point;
+        }
+    }
+    random_matrix->pointers[i + 1] = point + random_matrix->pointers[i];
+    ++i;
+    }
+
+    return random_matrix;
+}
+
+CCSMatrix* MatrixProduct(CCSMatrix* matrix1, CCSMatrix* matrix2) {
+    if (matrix1 && matrix2) {
+    auto tmp = CRSMatrix(*matrix1);
+    auto ans = MatrixProduct(&tmp, matrix2);
+    return ans;
+    } else {
+    return nullptr;
+    }
+}
+
+CCSMatrix* MatrixProduct(CRSMatrix* matrix1, CCSMatrix* matrix2) {
+    if (matrix1 && matrix2) {
+    if (matrix1->column_count != matrix2->row_count)
+        return nullptr;
+    int row_count = matrix1->row_count;
+    int column_count = matrix2->column_count;
+    std::vector<double> values;
+    std::vector<int> rows;
+    std::vector<int> pointers {0};
+
+    int point = 0;
+    for (int i = 0; i < column_count; ++i) {
+        for (int j = 0; j < row_count; ++j) {
+        int border_1_left = matrix1->pointers[j];
+        int border_1_right = matrix1->pointers[j + 1];
+        int border_2_left = matrix2->pointers[i];
+        int border_2_right = matrix2->pointers[i + 1];
+        double tmp = 0.0;
+        while (border_1_left < border_1_right
+        && border_2_left < border_2_right) {
+            if (matrix1->columns[border_1_left] == matrix2->rows[border_2_left])
+            tmp += matrix1->values[border_1_left++] * matrix2->values[border_2_left++];
+            while (border_1_left < border_1_right && border_2_left < border_2_right && matrix1->columns[border_1_left] < matrix2->rows[border_2_left])
+            ++border_1_left;
+            while (border_1_left < border_1_right && border_2_left < border_2_right && matrix2->rows[border_2_left] < matrix1->columns[border_1_left])
+            ++border_2_left;
+        }
+        if (tmp) {
+            values.push_back(tmp);
+            rows.push_back(j);
+            ++point;
+        }
+        }
+        pointers.push_back(point);
+    }
+
+    return new CCSMatrix(row_count, column_count, values, rows, pointers);
+    } else {
+    return nullptr;
+    }
+}
+
+CCSMatrix* MatrixProductParallel(CCSMatrix* matrix1, CCSMatrix* matrix2) {
+    int world_size, world_rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+
+    int m2_len;
+    int m2_row_count, m2_column_count;
+    int m1_row_count, m1_column_count, m1_length;
+    if (world_rank == 0) {
+    m2_row_count = matrix2->row_count;
+    m2_column_count = matrix2->column_count;
+    m2_len = matrix2->pointers[m2_column_count];
+    m1_row_count = matrix1->row_count;
+    m1_column_count = matrix1->column_count;
+    m1_length = matrix1->pointers[matrix1->column_count];
+    }
+    MPI_Bcast(&m2_len, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    if (m2_len < 4 * world_size) {
+    return MatrixProduct(matrix1, matrix2);
+    }
+
+    MPI_Bcast(&m2_row_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&m1_row_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&m1_column_count, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&m1_length, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    int* values_send_counts = nullptr;
+    int* values_send_disps = nullptr;
+    int* pointers_send_counts = nullptr;
+    int* column_divide_count = nullptr;
+    std::vector<int> pointers_sends = {0};
+    int* pointers_send_disps = nullptr;
+    CRSMatrix* matrix1_to_crs = nullptr;
+    if (world_rank == 0) {
+    matrix1_to_crs = new CRSMatrix(*matrix1);
+    } else {
+    matrix1_to_crs = new CRSMatrix(m1_row_count, m1_column_count, m1_length);
+    }
+
+    MPI_Bcast(matrix1_to_crs->values.data(), m1_length, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(matrix1_to_crs->columns.data(), m1_length, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(matrix1_to_crs->pointers.data(), m1_row_count + 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (world_rank == 0) {
+    values_send_counts = new int[world_size];
+    pointers_send_counts = new int[world_size];
+    column_divide_count = new int[m2_column_count];
+
+    values_send_disps = new int[world_size + 1];
+    values_send_disps[0] = 0;
+    pointers_send_disps = new int[world_size];
+    pointers_send_disps[0] = 0;
+
+    std::fill(pointers_send_counts, pointers_send_counts + world_size, 1);
+    std::fill(column_divide_count, column_divide_count + m2_column_count, 0);
+
+    int v_c_a = 1 + m2_len / world_size, v_c_r = m2_len % world_size;
+    for (int i = 0; i < v_c_r; ++i) {
+        values_send_counts[i] = v_c_a;
+    }
+    --v_c_a;
+    for (int i = v_c_r; i < world_size; ++i) {
+        values_send_counts[i] = v_c_a;
+    }
+
+    for (int i = 1; i < world_size; ++i) {
+        values_send_disps[i] = values_send_counts[i - 1] + values_send_disps[i - 1];
+    }
+
+    int v = 0, p = 0;
+    int v_tmp = values_send_counts[0], p_tmp = matrix2->pointers[1];
+    while (v < world_size && p < m2_column_count) {
+        ++column_divide_count[p];
+        ++pointers_send_counts[v];
+        if (v_tmp < p_tmp) {
+        // column has more elements than to send
+        pointers_sends.push_back(v_tmp + pointers_sends.back());
+        pointers_sends.push_back(0);
+        p_tmp -= v_tmp;
+        if (++v < world_size)
+            v_tmp = values_send_counts[v];
+        } else if (p_tmp < v_tmp) {
+        // column has less elements than to send
+        pointers_sends.push_back(p_tmp + pointers_sends.back());
+        v_tmp -= p_tmp;
+        if (++p < m2_column_count)
+            p_tmp = matrix2->pointers[p + 1] - matrix2->pointers[p];
+        } else {
+        // column has exact number of elements to send
+        pointers_sends.push_back(v_tmp + pointers_sends.back());
+        pointers_sends.push_back(0);
+        if (++v < world_size)
+            v_tmp = values_send_counts[v];
+        if (++p < m2_column_count)
+            p_tmp = matrix2->pointers[p + 1] - matrix2->pointers[p];
+        }
+    }
+
+    for (int i = 1; i < world_size; ++i) {
+        pointers_send_disps[i] = pointers_send_disps[i - 1] + pointers_send_counts[i - 1];
+    }
+    }
+
+    int values_count_atomic, pointers_count_atomic;
+
+    MPI_Scatter(values_send_counts, 1, MPI_INT, &values_count_atomic, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatter(pointers_send_counts, 1, MPI_INT, &pointers_count_atomic, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    std::vector<double> values_atomic(values_count_atomic);
+    std::vector<int> rows_atomic(values_count_atomic);
+    std::vector<int> pointers_atomic(pointers_count_atomic);
+
+    if (world_rank == 0) {
+    MPI_Scatterv(matrix2->values.data(), values_send_counts, values_send_disps, MPI_DOUBLE, values_atomic.data(), values_count_atomic, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(matrix2->rows.data(), values_send_counts, values_send_disps, MPI_INT, rows_atomic.data(), values_count_atomic, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(pointers_sends.data(), pointers_send_counts, pointers_send_disps, MPI_INT, pointers_atomic.data(), pointers_count_atomic, MPI_INT, 0, MPI_COMM_WORLD);
+    } else {
+    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_DOUBLE, values_atomic.data(), values_count_atomic, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_INT, rows_atomic.data(), values_count_atomic, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(nullptr, nullptr, nullptr, MPI_INT, pointers_atomic.data(), pointers_count_atomic, MPI_INT, 0, MPI_COMM_WORLD);
+    }
+
+    CCSMatrix* matrix2_atomic = new CCSMatrix(m2_row_count, pointers_count_atomic - 1, values_atomic, rows_atomic, pointers_atomic);
+
+    CCSMatrix* answer_atomic = MatrixProduct(matrix1_to_crs, matrix2_atomic);
+
+    int answer_atomic_length = answer_atomic->values.size();
+
+    MPI_Gather(&answer_atomic_length, 1, MPI_INT, values_send_counts, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    double* answer_all_values = nullptr;
+    int* answer_all_rows = nullptr;
+    double* answer_values_column = nullptr;
+
+    if (world_rank == 0) {
+    for (int i = 1; i <= world_size; ++i) {
+        values_send_disps[i] = values_send_disps[i - 1] + values_send_counts[i - 1];
+    }
+    answer_all_values = new double[values_send_disps[world_size]];
+    answer_all_rows = new int[values_send_disps[world_size]];
+    answer_values_column = new double[m1_row_count];
+    }
+
+    MPI_Gatherv(answer_atomic->values.data(), answer_atomic_length, MPI_DOUBLE, answer_all_values, values_send_counts, values_send_disps, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(answer_atomic->rows.data(), answer_atomic_length, MPI_INT, answer_all_rows, values_send_counts, values_send_disps, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(answer_atomic->pointers.data(), pointers_count_atomic, MPI_INT, pointers_sends.data(), pointers_send_counts, pointers_send_disps, MPI_INT, 0, MPI_COMM_WORLD);
+
+    delete matrix1_to_crs;
+    delete matrix2_atomic;
+
+    if (world_rank == 0) {
+    std::vector<double> answer_values;
+    std::vector<int> answer_rows;
+    std::vector<int> answer_pointers;
+    answer_pointers.assign(m2_column_count + 1, 0);
+    int p = 1, c = 0, v = 0;
+    bool check = false;
+    std::fill(answer_values_column, answer_values_column + m1_row_count, 0.0);
+    for (int i = 0; i < world_size; ++i, ++p) {
+        for (int j = 1; j < pointers_send_counts[i]; ++j, ++p) {
+            for (int k = pointers_sends[p - 1]; k < pointers_sends[p]; ++k, ++v) {
+                answer_values_column[answer_all_rows[v]] += answer_all_values[v];
+                check = true;
+            }
+            --column_divide_count[c];
+            if (column_divide_count[c] == 0) {
+                ++c;
+                answer_pointers[c] = answer_pointers[c - 1];
+                if (check) {
+                    for (int t = 0; t < m1_row_count; ++t) {
+                        if (answer_values_column[t] != 0.0) {
+                            answer_values.push_back(answer_values_column[t]);
+                            answer_rows.push_back(t);
+                            ++answer_pointers[c];
+                        }
+                    }
+                    std::fill(answer_values_column, answer_values_column + m1_row_count, 0.0);
+                    check = false;
+                }
+            }
+        }
+    }
+
+    for (; c < m2_column_count; ++c) {
+        answer_pointers[c + 1] = answer_pointers[c];
+    }
+
+    delete [] values_send_counts;
+    delete [] pointers_send_counts;
+    delete [] column_divide_count;
+    delete [] values_send_disps;
+    delete [] pointers_send_disps;
+    delete [] answer_all_values;
+    delete [] answer_all_rows;
+    delete [] answer_values_column;
+
+    return new CCSMatrix(m1_row_count, m2_column_count, answer_values, answer_rows, answer_pointers);
+    } else {
+    return nullptr;
+    }
+}
+\end{lstlisting}
+
+main.cc
+
+\begin{lstlisting}
+// Copyright 2021 Gleb "belgad" Danshin
+#include <mpi.h>
+#include <iostream>
+
+#include <gtest/gtest.h>
+#include <gtest-mpi-listener.hpp>
+
+#include "../../../modules/task_3/danshin_g_ccs_matrix_product/ccs_matrix_product.hh"
+
+TEST(DanshinGlebCCSMatrixProduct, MatrixTypes02x100x100n02x100x100) {
+int rank;
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+CCSMatrix* matrix1 = nullptr;
+CCSMatrix* matrix2 = nullptr;
+CCSMatrix* answer_sequence;
+CCSMatrix* answer_parallel;
+
+double seq_start_time, seq_end_time, par_start_time, par_end_time;
+
+if (rank == 0) {
+    matrix1 = GenerateRandomMatrix(0.2, 100, 100);
+    matrix2 = GenerateRandomMatrix(0.2, 100, 100);
+
+    seq_start_time = MPI_Wtime();
+    answer_sequence = MatrixProduct(matrix1, matrix2);
+    seq_end_time = MPI_Wtime();
+}
+
+par_start_time = MPI_Wtime();
+answer_parallel = MatrixProductParallel(matrix1, matrix2);
+par_end_time = MPI_Wtime();
+
+if (rank == 0) {
+    double seq_time_elapsed = seq_end_time - seq_start_time;
+    double par_time_elapsed = par_end_time - par_start_time;
+    double eff = seq_time_elapsed / par_time_elapsed;
+
+    std::cout << "Sequence time: " << seq_time_elapsed << std::endl
+            << "Parallel time: " << par_time_elapsed << std::endl
+            << "Efficiency: "    << eff              << std::endl;
+
+    EXPECT_TRUE(*answer_sequence == *answer_parallel);
+
+    delete matrix1;
+    delete matrix2;
+    delete answer_sequence;
+    delete answer_parallel;
+}
+
+MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(DanshinGlebCCSMatrixProduct, MatrixTypes04x100x100n03x100x100) {
+int rank;
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+CCSMatrix* matrix1 = nullptr;
+CCSMatrix* matrix2 = nullptr;
+CCSMatrix* answer_sequence;
+CCSMatrix* answer_parallel;
+
+double seq_start_time, seq_end_time, par_start_time, par_end_time;
+
+if (rank == 0) {
+    matrix1 = GenerateRandomMatrix(0.4, 100, 100);
+    matrix2 = GenerateRandomMatrix(0.3, 100, 100);
+
+    seq_start_time = MPI_Wtime();
+    answer_sequence = MatrixProduct(matrix1, matrix2);
+    seq_end_time = MPI_Wtime();
+}
+
+par_start_time = MPI_Wtime();
+answer_parallel = MatrixProductParallel(matrix1, matrix2);
+par_end_time = MPI_Wtime();
+
+if (rank == 0) {
+    double seq_time_elapsed = seq_end_time - seq_start_time;
+    double par_time_elapsed = par_end_time - par_start_time;
+    double eff = seq_time_elapsed / par_time_elapsed;
+
+    std::cout << "Sequence time: " << seq_time_elapsed << std::endl
+            << "Parallel time: " << par_time_elapsed << std::endl
+            << "Efficiency: "    << eff              << std::endl;
+
+    EXPECT_TRUE(*answer_sequence == *answer_parallel);
+
+    delete matrix1;
+    delete matrix2;
+    delete answer_sequence;
+    delete answer_parallel;
+}
+
+MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(DanshinGlebCCSMatrixProduct, MatrixTypes02x1000x100n02x100x1000) {
+int rank;
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+CCSMatrix* matrix1 = nullptr;
+CCSMatrix* matrix2 = nullptr;
+CCSMatrix* answer_sequence;
+CCSMatrix* answer_parallel;
+
+double seq_start_time, seq_end_time, par_start_time, par_end_time;
+
+if (rank == 0) {
+    matrix1 = GenerateRandomMatrix(0.2, 1000, 100);
+    matrix2 = GenerateRandomMatrix(0.2, 100, 1000);
+
+    seq_start_time = MPI_Wtime();
+    answer_sequence = MatrixProduct(matrix1, matrix2);
+    seq_end_time = MPI_Wtime();
+}
+
+par_start_time = MPI_Wtime();
+answer_parallel = MatrixProductParallel(matrix1, matrix2);
+par_end_time = MPI_Wtime();
+
+if (rank == 0) {
+    double seq_time_elapsed = seq_end_time - seq_start_time;
+    double par_time_elapsed = par_end_time - par_start_time;
+    double eff = seq_time_elapsed / par_time_elapsed;
+
+    std::cout << "Sequence time: " << seq_time_elapsed << std::endl
+            << "Parallel time: " << par_time_elapsed << std::endl
+            << "Efficiency: "    << eff              << std::endl;
+
+    EXPECT_TRUE(*answer_sequence == *answer_parallel);
+
+    delete matrix1;
+    delete matrix2;
+    delete answer_sequence;
+    delete answer_parallel;
+}
+
+MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(DanshinGlebCCSMatrixProduct, MatrixTypes01x1000x1000n01x1000x1000) {
+int rank;
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+CCSMatrix* matrix1 = nullptr;
+CCSMatrix* matrix2 = nullptr;
+CCSMatrix* answer_sequence;
+CCSMatrix* answer_parallel;
+
+double seq_start_time, seq_end_time, par_start_time, par_end_time;
+
+if (rank == 0) {
+    matrix1 = GenerateRandomMatrix(0.2, 1000, 1000);
+    matrix2 = GenerateRandomMatrix(0.2, 1000, 1000);
+
+    seq_start_time = MPI_Wtime();
+    answer_sequence = MatrixProduct(matrix1, matrix2);
+    seq_end_time = MPI_Wtime();
+}
+
+par_start_time = MPI_Wtime();
+answer_parallel = MatrixProductParallel(matrix1, matrix2);
+par_end_time = MPI_Wtime();
+
+if (rank == 0) {
+    double seq_time_elapsed = seq_end_time - seq_start_time;
+    double par_time_elapsed = par_end_time - par_start_time;
+    double eff = seq_time_elapsed / par_time_elapsed;
+
+    std::cout << "Sequence time: " << seq_time_elapsed << std::endl
+            << "Parallel time: " << par_time_elapsed << std::endl
+            << "Efficiency: "    << eff              << std::endl;
+
+    EXPECT_TRUE(*answer_sequence == *answer_parallel);
+
+    delete matrix1;
+    delete matrix2;
+    delete answer_sequence;
+    delete answer_parallel;
+}
+
+MPI_Barrier(MPI_COMM_WORLD);
+}
+
+TEST(DanshinGlebCCSMatrixProduct, MatrixTypes00001x2000x3000n00001x3000x1000) {
+int rank;
+MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+CCSMatrix* matrix1 = nullptr;
+CCSMatrix* matrix2 = nullptr;
+CCSMatrix* answer_sequence = nullptr;
+CCSMatrix* answer_parallel = nullptr;
+
+double seq_start_time, seq_end_time, par_start_time, par_end_time;
+
+if (rank == 0) {
+    matrix1 = GenerateRandomMatrix(0.0001, 2000, 3000);
+    matrix2 = GenerateRandomMatrix(0.0001, 3000, 1000);
+
+    seq_start_time = MPI_Wtime();
+    answer_sequence = MatrixProduct(matrix1, matrix2);
+    seq_end_time = MPI_Wtime();
+}
+
+par_start_time = MPI_Wtime();
+answer_parallel = MatrixProductParallel(matrix1, matrix2);
+par_end_time = MPI_Wtime();
+
+if (rank == 0) {
+    double seq_time_elapsed = seq_end_time - seq_start_time;
+    double par_time_elapsed = par_end_time - par_start_time;
+    double eff = seq_time_elapsed / par_time_elapsed;
+
+    std::cout << "Sequence time: " << seq_time_elapsed << std::endl
+            << "Parallel time: " << par_time_elapsed << std::endl
+            << "Efficiency: "    << eff              << std::endl;
+
+    EXPECT_TRUE(*answer_sequence == *answer_parallel);
+
+    delete matrix1;
+    delete matrix2;
+    delete answer_sequence;
+    delete answer_parallel;
+}
+
+MPI_Barrier(MPI_COMM_WORLD);
+}
+
+int main(int argc, char** argv) {
+::testing::InitGoogleTest(&argc, argv);
+MPI_Init(&argc, &argv);
+
+::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+::testing::TestEventListeners& listeners =
+    ::testing::UnitTest::GetInstance()->listeners();
+
+listeners.Release(listeners.default_result_printer());
+listeners.Release(listeners.default_xml_generator());
+
+listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+
+\end{document}
