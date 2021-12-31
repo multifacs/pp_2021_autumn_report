@@ -1,0 +1,669 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Построение выпуклой оболочки для компонент бинарного изображения»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Колесников И. В.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Выпуклой оболочкой множества X называется наименьшее выпуклое множество, содержащее X. «Наименьшее множество» здесь означает наименьший элемент по отношению к вложению множеств, то есть такое выпуклое множество, содержащее данную фигуру, что оно содержится в любом другом выпуклом множестве, содержащем данную фигуру. Во время обработки изображений часто требуется найти выпуклую оболочку, которая окружает объект на изображении. В условиях данной лабораторной работы изображение считается заданным в оттенках серого. Выпуклая оболочка похожа на полигональное приближение, за исключением того, что это выпуклый набор, который окружает самый внешний слой объекта. Этот выпуклый набор является пересечением всех выпуклых наборов, которые могут окружать объект. 
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par Таким образом, в данной лабораторной работе требуется реализовать последовательный и параллельный алгоритмы построения минимальной выпуклой оболочки компонент бинарного изображения с использованием технологий MPI. Для проверки работы на ошибки необходимо реализовать ряд тестов с использованием Google C++ Testing Framework. Затем нужно провести вычислительный эксперименты для сравнения времени работы алгоритмов и сделать выводы об эффективности реализованных алгоритмов. Также нужно графически изобразить построение выпуклой оболочки на реальном изображении, используя технологии OpenCV.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+\par В широком смысле задача состоит в поиске набора точек, которые можно последовательно соединить между собой и получить таким образом оболочку для исходного набора точек. То есть, входными данными является вектор точек. Для удобства использования он сортируется по точкам. То есть, по x и y. Таким образом, нам известно, положение (справа/слева/снизу/сверху) двух соседних точек относительно друг друга. Этот вариант уместен для тестирования алгоритма. Однако задача подразумевает использование реального изображения. Поэтому сначала необходимо перевести изображение в вектор точек. Так как оно, по сути, уже задано двумерным массивом координат точек (пикселей), то остается лишь получить их и записать в вектор. Сортировать в данном случае его не надо, потому что вектор заполняется последовательно по мере прохождения всего изображения. Далее было принято решение использовать алгоритм обхода Джарвиса.
+\par Теперь можно приступать к поиску оболочки. Но сначала реализуется дополнительный функционал. А именно поиск предпоследней точки оболочки. Так как очевидно, последняя точка будет и первой (иначе оболочка не сомкнется и обернет не весь набор точек), то и нахождение предпоследней точки не становится трудной задачей.
+\par Теперь последовательно берем по три точки из исходного вектора. Определяем положение средней точки относительно двух других с помощью значения выражения (q.returnY() - p.returnY()) *
+    (r.returnX() - q.returnX()) - (r.returnY() - q.returnY()) * (q.returnX() - p.returnX()). Здесь p - точка слева, r - справа, q - посередине (в общем смысле). В частности, если это выражение меньше нуля, точка расположена слева от двух других (имеется ввиду именно порядок следования линии от одной точки до другой - если принять такое определение, то точка будет всегда снизу/сверху относительно линии, как ее не поверни). Точка, которая оказалась в нужном месте, добавляется в оболочку. Таким образом, проходим по точкам пока точка для добавления не станет либо последней, либо предпоследней (это нужно для того, чтобы избежать ошибок, когда предпоследняя точка не добавляется из-за того, что алгоритм не предусматривает определение позиции точки между предпредпоследним элементом и первым, так как это, вероятнее всего, потребует дополнительного цикла). При этом, первой точкой оболочки выбирается левая нижняя точка исходного вектора.
+
+
+\newpage
+
+% Описание схемы распараллеливания
+\section*{Описание схемы распараллеливания}
+\addcontentsline{toc}{section}{Описание схемы распараллеливания}
+\par Очевидно, что последовательный алгоритм предусматривает проход по всем точкам исходного вектора каждый раз, когда нужно добавить новую точку в оболочку, что возможно выполнить только последовательно. Ввиду этого, разумным решением было бы разделить поиск точек для оболочки между процессами.
+\par Однако теперь появляется вопрос о том, как сделать это не последовательно. После рассмотрения несколько вариантов, самым удачным решением оказалось присылать позицию точки, последней добавленной в оболочку текущим процессом, каждому следующему процессу. Это решение обсуловлено тем, что изначально неизвестно, сколько точек будет в оболочке. Одновременно с этим, каждый процесс отсылает корневому вектор точек, которые он добавил в оболочку. Таким образом, корневой процесс имеет полную оболочку.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+Программа содержит заголовочный файл kolesnikov\_hull.h и два файла исходного кода kolesnikov\_hull.cpp и main.cpp.
+\par В заголовочном файле находятся описание класса Point, который имеет методы получения абсциссы и ординаты, а также перегружает операции: равно, не равно, вычесть. Заголовочный файл содержит также прототипы функций для вычисления выпуклой оболочки заданного набора точек, а также функции, среди которых: смена точек местами, сортировка вектора точек, получение позиции точки относительно двух других и получение предпоследнего элемента.
+\par Функция смены точек местами:
+\begin{lstlisting}
+void swap_p(Point* a, Point* b);
+\end{lstlisting}
+Принимает на вход две точки. Меняет их местами, присваивая значение абсциссы первой точки - второй и наборот, также для ординаты.
+\par Функция сортировки вектора точек:
+\begin{lstlisting}
+std::vector<Point> sort_vec(std::vector<Point> vec);
+\end{lstlisting}
+Принимает на вход вектор точек. Сортирует вектор сначала по абсциссе точек, а потом по ординате с условием, что абсциссы равны.
+\par Функция получения позиции точки:
+\begin{lstlisting}
+int orientation(Point p, Point q, Point r);
+\end{lstlisting}
+Принимает на вход три точки. Вычисляет значение по формуле (q.returnY() - p.returnY()) *
+ (r.returnX() - q.returnX()) - (r.returnY() - q.returnY()) * (q.returnX() - p.returnX()).
+\par Функция получения предпоследнего элемента:
+\begin{lstlisting}
+int get_pre_last(std::vector<Point> vec);
+\end{lstlisting}
+Принимает на вход вектор точек. По правилу находит точку, которая является предпоследней в оболочке. Правило кратко можно описать так: если точка лежит слева от линии между начальной точкой и точкой с максимальной ординатой и минимальной абсциссой (которая, очевидно, будет в оболочке) и она выше, чем первая точка, но при этом, не выше остальных левых точек (при их наличии), то она предпоследняя. Если нет, то предпоследняя это точка с максимальной ординатой и минимальной абсциссой.
+\par В файле исходного кода kolesnikov\_hull.cpp содержится реализация функций, объявленных в заголовочном файле. В файле исходного кода main.cpp содержатся тесты для проверки корректности программы.
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы данной программы с помощью Google C++ Testing Framework мной было разработано 5 тестов: каждый из них, так или иначе, проверяет работоспособность программы при определенных, изначально заданных условиях. Проверяется как основная функция, так и параллельная. Среди условий могут быть, например: оболочка должна содержать первую точку исходного вектора (иначе она не замкнется); последний и первый элементы оболочки должны также совпадать (по той же причине); определенный элемент оболочки (любой от первого до последнего), найденной параллельным алгоритмом, должен совпадать с элементом, имеющим тот же номер в оболочке, найденной основным алгоритмом. 
+\par Успешное прохождение всех тестов доказывает корректность работы программы.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Вычислительные эксперименты для оценки эффективности параллельного варианта
+метода сопряженных градиентов для решения систем линейных уравнений с симметричной положительно определенной матрицей  проводились на ПК со следующими характеристиками:
+\begin{itemize}
+\item Процессор: AMD Ryzen 3 2200G with Radeon Vega Graphics 3.50 GHz ;
+\item Оперативная память: 8 ГБ (DDR4), 2.30GHz;
+\item Операционная система: Windows 10 Домашняя.
+\end{itemize}
+
+\par Эксперименты проводились на векторе разного размера, на 5 процессах (см. Таблица 1), и на 10 процессах (см. Таблица 2).
+
+\par Результаты экспериментов представлены в Таблице 1 и в Таблице 2.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов для 4 процессов}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Размер вектора точек & Время работы последовательного алгоритма (в секундах) & Время работы параллельного алгоритма (в секундах) & Ускорение  \\[5pt]
+\hline
+100        & 0.007789   & 0.005676    & 1.372227      \\
+500       & 0.042740    & 0.036389     & 1.174523       \\
+1000       & 0.090689    & 0.075268     & 1.204883      \\
+3000       & 0.237286     & 0.145058     & 1.635795       \\
+5000       & 0.401187   & 0.225582    & 1.778449      \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\newpage
+
+% Выводы из результатов экспериментов
+\section*{Выводы из результатов экспериментов}
+\addcontentsline{toc}{section}{Выводы из результатов экспериментов}
+По данным, полученным в результате экспериментов, можно сделать вывод о том, что параллельный алгоритм работает быстрее, чем последовательный. При росте размера вектора можно заметить увеличение ускорения. Это означает, что чем больше размер исходного набора точек, тем более быстро будет работать параллельный алгоритм относительно последовательного. 
+
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+Таким образом, в рамках данной лабораторной работы были разработаны последовательный и параллельный алгоритмы для нахождения минимальной выпуклой оболочки компонент бинарного изображения. Одной из главных задач было сделать алгоритм паралллельным. Из нее также вытекает не менее главная задача достижения более быстрого выполенения параллельного алгоритма относительно последовательного. Проведенные тесты доказали, что программа верно вычисляет оболочку. А результаты вычислительных экспериментов доказывают, что обе поставленные задачи были выполнены. Корректность алгоритма также была подтверждена на реальном изображении, где выпуклая оболочка совпала с ожидаемой.
+\newpage
+
+% Литература
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Гергель В. П., Стронгин Р. Г. Основы параллельных вычислений для многопроцессорных вычислительных систем. – 2003.
+\item Минимальная выпуклая оболочка на плоскости. \newline URL: https://grafika.me/node/161
+\end{enumerate} 
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+kolesnikov\_hull.h
+\begin{lstlisting}
+// Copyright 2021 Kolesnikov Ilya
+#ifndef MODULES_TASK_3_KOLESNIKOV_I_HULL_KOLESNIKOV_HULL_H_
+#define MODULES_TASK_3_KOLESNIKOV_I_HULL_KOLESNIKOV_HULL_H_
+#include <vector>
+#include <string>
+#include <fstream>
+#include <ctime>
+
+MPI_Comm topology_ring(const MPI_Comm comm);
+
+int single_find_symbol(char symbol, std::string str);
+int parallel_find_symbol(char symbol, std::string str);
+
+class Point {
+ public:
+    Point(int k, int l) {
+        x = k; y = l;
+    }
+    explicit Point(Point* pt) {
+        x = pt->returnX(); y = pt->returnY();
+    }
+    int returnX() {
+        return this->x;
+    }
+    int returnY() {
+        return this->y;
+    }
+    bool operator != (Point* other) {
+        bool check1 = other->returnX()!= this->x && other->returnY()!= this->y;
+        bool check2 = other->returnX() == this->x && other->returnY() != this->y;
+        bool check3 = other->returnX() != this->x && other->returnY() == this->y;
+        if (check1 && check2 && check3) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    bool operator == (Point* other) {
+        return (other->returnX() == this->x) && (other->returnY() == this->y)?true:false;
+    }
+    Point operator - (Point* p) {
+        return Point(this->x - p->returnX(), this->y - p->returnY());
+    }
+
+ private:
+    int x, y;
+};
+
+void swap_p(Point* a, Point* b);
+std::vector<Point> sort_vec(std::vector<Point> vec);
+int orientation(Point p, Point q, Point r);
+int get_pre_last(std::vector<Point> vec);
+std::vector<int> point_to_int(std::vector<Point> vec);
+std::vector<Point> int_to_point(std::vector<int> vec);
+std::vector<Point> convexHull_jarvis(std::vector<Point> vec);
+std::vector<Point> convexHull_jarvis_parallel(std::vector<Point> vec);
+
+#endif  // MODULES_TASK_3_KOLESNIKOV_I_HULL_KOLESNIKOV_HULL_H_
+\end{lstlisting}
+kolesnikov\_hull.cpp
+\begin{lstlisting}
+// Copyright 2021 Kolesnikov Ilya
+#include <mpi.h>
+#include "../../../modules/task_3/kolesnikov_i_hull/kolesnikov_hull.h"
+
+void swap_p(Point* a, Point* b) {
+    Point a_tmp = *a;
+    *a = *b;
+    *b = a_tmp;
+}
+
+std::vector<Point> sort_vec(std::vector<Point> vec) {
+    int vec_size = vec.size();
+    for (int i(0); i < vec_size; ++i) {
+        for (int j(0); j < vec_size - 1; ++j) {
+            if ((vec[j].returnX() > vec[j + 1].returnX())) {
+                swap_p(&vec[j], &vec[j + 1]);
+            }
+        }
+    }
+    for (int i(0); i < vec_size; ++i) {
+        for (int j(0); j < vec_size - 1; ++j) {
+            if ((vec[j].returnX() == vec[j + 1].returnX()) && (vec[j].returnY() > vec[j + 1].returnY())) {
+                swap_p(&vec[j], &vec[j + 1]);
+            }
+        }
+    }
+    return vec;
+}
+
+int orientation(Point p, Point q, Point r) {
+    int res = (q.returnY() - p.returnY()) *
+    (r.returnX() - q.returnX()) - (r.returnY() - q.returnY()) * (q.returnX() - p.returnX());
+    return res;
+}
+
+int get_pre_last(std::vector<Point> vec) {
+    int res = 0;
+    bool check = false;
+    int x = vec[1].returnX() - vec[0].returnX();
+    int y = vec[1].returnY() - vec[0].returnY();
+    int vec_size = vec.size();
+    for (int i(2); i < vec_size; ++i) {
+        if (vec[i].returnX() - vec[i - 1].returnX() == x && vec[i].returnY() - vec[i - 1].returnY() == y) {
+            check = true;
+        } else {
+            check = false;
+            break;
+          }
+    }
+    if (check) {
+        return vec.size() - 1;
+    }
+    for (int i(1); i < vec_size; ++i) {
+        if (vec[0].returnX() == vec[i].returnX()) {
+            return i;
+        }
+    }
+    Point pt(0, 0);
+    if (orientation(vec[0], vec[1], vec[2]) <= 0) {
+        if (vec[1].returnY() >= vec[0].returnY()) {
+            return 1;
+        }
+    }
+
+    return res;
+}
+
+std::vector<int> point_to_int(std::vector<Point> vec) {
+    std::vector<int> res;
+    for (auto pt : vec) {
+        res.push_back(pt.returnX());
+        res.push_back(pt.returnY());
+    }
+
+    return res;
+}
+
+std::vector<Point> int_to_point(std::vector<int> vec) {
+    std::vector<Point> res;
+    int vec_size = vec.size()-1;
+    for (int i(0); i < vec_size; i+=2) {
+         res.push_back(Point(vec[i], vec[i + 1]));
+    }
+
+    return res;
+}
+
+std::vector<Point> convexHull_jarvis_parallel(std::vector<Point> vec) {
+    std::vector<Point> steps;
+    int size = 0, rank = 0;
+
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    MPI_Status status;
+    int l = 0;
+    int n = vec.size();
+    for (int i = 0; i < n; i++) {
+        if (vec[i].returnX() < vec[l].returnX()) {
+            l = i;
+        }
+    }
+    int x = l, y;
+    int range = 6;
+    if (rank != 0) {
+        range = 6;
+        MPI_Recv(&x, 1, MPI_INT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+    } else if (size == 1) {
+        range = vec.size();
+    }
+    int cnt = 0;
+    int pre_last = get_pre_last(vec);
+    int x_tmp = 0;
+
+    if (rank != size - 1) {
+        do {
+            if (x == pre_last) {
+                break;
+            }
+            if (rank != size - 1 && &vec[x] == &vec[0] && cnt > 0) {
+                break;
+            }
+            if (cnt == range - 1) {
+                x_tmp = x;
+            }
+            if (cnt <= range) {
+                if (cnt + 1 < range) {
+                    steps.push_back(vec[x]);
+                }
+            }
+            if (cnt > range) {
+                break;
+            }
+            y = (x + 1) % n;
+            for (auto i = 0; i < n; i++) {
+                if (i + 1 < n) {
+                    if (&vec[i] == &vec[i + 1]) {
+                        continue;
+                    }
+                }
+                if (orientation(vec[x], vec[i], vec[y]) < 0) {
+                    y = i;
+                }
+            }
+            x = y;
+            cnt++;
+        } while (x != l);
+    } else {
+        do {
+            steps.push_back(vec[x]);
+            y = (x + 1) % n;
+            for (auto i = 0; i < n; i++) {
+                if (i + 1 < n) {
+                    if (&vec[i] == &vec[i + 1]) {
+                        continue;
+                    }
+                }
+                if (orientation(vec[x], vec[i], vec[y]) < 0) {
+                    y = i;
+                }
+            }
+            x = y;
+            cnt++;
+            if (x == pre_last) {
+                steps.push_back(vec[x]);
+                break;
+            }
+        } while (x != l);
+    }
+    if (rank != size - 1) {
+        MPI_Send(&x_tmp, 1, MPI_INT, rank + 1, 1, MPI_COMM_WORLD);
+    } else {
+        if (&steps[0] != &steps[steps.size() - 1]) {
+            steps.push_back(vec[0]);
+        }
+    }
+
+    std::vector<int> real_points = point_to_int(steps);
+    std::vector<int> send_counts(size);
+    int size_to_send = real_points.size();
+    MPI_Gather(&size_to_send, 1, MPI_INT, send_counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(send_counts.data(), size, MPI_INT, 0, MPI_COMM_WORLD);
+    std::vector <int> dspls;
+    int sum_p = 0;
+    for (int i(0); i < size; ++i) {
+        dspls.push_back(sum_p);
+        sum_p += send_counts[i];
+    }
+    std::vector<int> steps_to_send(sum_p);
+    MPI_Gatherv(real_points.data(), real_points.size(), MPI_INT, steps_to_send.data(),
+    send_counts.data(), dspls.data(), MPI_INT, 0, MPI_COMM_WORLD);
+    std::vector<Point>steps_to_send2 = int_to_point(steps_to_send);
+    std::vector<Point>steps_to_send3;
+    steps_to_send3.push_back(steps_to_send2[0]);
+    int steps_size_t = steps_to_send2.size();
+    for (int i(1); i < steps_size_t; ++i) {
+        if (&steps_to_send2[i] == &steps_to_send2[0]) {
+            steps_to_send3.push_back(steps_to_send2[i]);
+            break;
+        }
+        steps_to_send3.push_back(steps_to_send2[i]);
+    }
+    return steps_to_send3;
+}
+
+std::vector<Point> convexHull_jarvis(std::vector<Point> vec) {
+    std::ofstream points, hull;
+    points.open("points.txt");
+    hull.open("hull.txt");
+    std::vector<Point> steps;
+    int l = 0;
+    int n = vec.size();
+    for (auto i = 0; i < n; i++) {
+        if (vec[i].returnX() < vec[l].returnX()) {
+            l = i;
+        }
+    }
+    int x = l, y;
+    int pre_last = get_pre_last(vec);
+    do {
+        steps.push_back(vec[x]);
+        y = (x + 1) % n;
+        for (auto i = 0; i < n; i++) {
+            if (i + 1 < n) {
+                if (&vec[i] == &vec[i + 1]) {
+                    continue;
+                }
+            }
+            if (orientation(vec[x], vec[i], vec[y]) < 0) {
+                y = i;
+            }
+        }
+        x = y;
+        if (x == pre_last) {
+            steps.push_back(vec[x]);
+            break;
+        }
+    } while (x != l);
+    if (&steps[0] != &steps[steps.size() - 1]) {
+        steps.push_back(vec[0]);
+    }
+    int vec_size = vec.size();
+    for (int i(0); i < vec_size; ++i) {
+        points << vec[i].returnX() << " " << vec[i].returnY() << "\n";
+    }
+    int steps_size = steps.size();
+    for (int i(0); i < steps_size; ++i) {
+        hull << steps[i].returnX() << " " << steps[i].returnY() << "\n";
+    }
+    points.close();
+    hull.close();
+    return steps;
+}
+\end{lstlisting}
+main.cpp
+\begin{lstlisting}
+// Copyright 2021 Kolesnikov Ilya
+#include <gtest/gtest.h>
+#include <mpi.h>
+#include <string>
+#include "./kolesnikov_hull.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(hull, last_hull_is_equal_with_first_point) {
+    int rank = 0, size = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<Point> vec;
+    vec.push_back(Point(1, 2));
+    vec.push_back(Point(2, 4));
+    vec.push_back(Point(2, 6));
+    vec.push_back(Point(4, 5));
+    vec.push_back(Point(7, 8));
+    vec.push_back(Point(8, 2));
+    vec.push_back(Point(10, 12));
+
+    std::vector<Point> res = convexHull_jarvis_parallel(vec);
+
+    if (rank == 0) {
+        ASSERT_EQ(res[res.size() - 1].returnX(), vec[0].returnX());
+        ASSERT_EQ(res[res.size() - 1].returnY(), vec[0].returnY());
+    }
+}
+
+TEST(hull, single_parallel_2_nd_item) {
+    int rank = 0, size = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<Point> vec;
+    vec.push_back(Point(1, 2));
+    vec.push_back(Point(2, 4));
+    vec.push_back(Point(2, 6));
+    vec.push_back(Point(4, 5));
+    vec.push_back(Point(7, 8));
+    vec.push_back(Point(8, 2));
+    vec.push_back(Point(10, 12));
+
+    std::vector<Point> res = convexHull_jarvis_parallel(vec);
+    std::vector<Point> res_single = convexHull_jarvis_parallel(vec);
+
+    if (rank == 0 && res.size() > 1) {
+        ASSERT_EQ(res[1].returnX(), res_single[1].returnX());
+        ASSERT_EQ(res[1].returnY(), res_single[1].returnY());
+    }
+}
+
+TEST(hull, single_parallel_3_d_item) {
+    int rank = 0, size = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<Point> vec;
+    vec.push_back(Point(1, 2));
+    vec.push_back(Point(2, 4));
+    vec.push_back(Point(2, 6));
+    vec.push_back(Point(4, 5));
+    vec.push_back(Point(7, 8));
+    vec.push_back(Point(8, 2));
+    vec.push_back(Point(10, 12));
+
+    std::vector<Point> res = convexHull_jarvis_parallel(vec);
+    std::vector<Point> res_single = convexHull_jarvis_parallel(vec);
+
+    if (rank == 0 && res.size() > 2) {
+        ASSERT_EQ(res[2].returnX(), res_single[2].returnX());
+        ASSERT_EQ(res[2].returnY(), res_single[2].returnY());
+    }
+}
+
+TEST(hull, last_is_equal_with_first) {
+    int rank = 0, size = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<Point> vec;
+    vec.push_back(Point(1, 2));
+    vec.push_back(Point(2, 4));
+    vec.push_back(Point(2, 6));
+    vec.push_back(Point(4, 5));
+    vec.push_back(Point(7, 8));
+    vec.push_back(Point(8, 2));
+    vec.push_back(Point(10, 12));
+
+    std::vector<Point> res = convexHull_jarvis_parallel(vec);
+
+    if (rank == 0 && res.size() > 2) {
+        ASSERT_EQ(res[0].returnX(), res[res.size() - 1].returnX());
+        ASSERT_EQ(res[0].returnY(), res[res.size() - 1].returnY());
+    }
+}
+
+TEST(hull, last_is_equal_with_first2) {
+    int rank = 0, size = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    std::vector<Point> vec;
+    vec.push_back(Point(1, 2));
+    vec.push_back(Point(2, 4));
+    vec.push_back(Point(2, 6));
+    vec.push_back(Point(4, 5));
+    vec.push_back(Point(7, 8));
+    vec.push_back(Point(8, 2));
+    vec.push_back(Point(10, 12));
+
+    std::vector<Point> res = convexHull_jarvis_parallel(vec);
+
+    if (rank == 0 && res.size() > 2) {
+        ASSERT_EQ(res[0].returnY(), res[res.size() - 1].returnY());
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+
+    MPI_Init(&argc, &argv);
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
