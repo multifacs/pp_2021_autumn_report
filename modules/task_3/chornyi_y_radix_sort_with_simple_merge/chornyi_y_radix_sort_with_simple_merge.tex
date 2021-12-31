@@ -1,0 +1,615 @@
+\documentclass{report}
+
+\usepackage[warn]{mathtext}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage{tempora}
+\usepackage[12pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=2cm,left=2.5cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\usepackage{listings}
+\lstset{language=C++,
+        basicstyle=\scriptsize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{red}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+% Титульный лист %
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+\textbf{Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского}
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\begin{center}
+Направление подготовки: «Фундаментальная информатика и информационные технологии»
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\LargeОтчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large«Поразрядная сортировка для целых чисел с простым слиянием.»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Чёрный Ю. Ю.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Руководитель:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание %
+\tableofcontents
+\newpage
+
+% Введение %
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+\par Нередко встречается задача упорядочивания какого-то множества по какому-то признаку, она часто возникает в реальной жизни, но с развитием информационных технологий эта задача стала почти неотъемлемой  их частью. В наше время эту задачу можно решить более чем десятком методов, эти методы называются алгоритмы сортировки. \\ \\
+Алгоритмы сортировки отличаются друг от друга своими параметрами, рассмотрим основные из них:
+
+Время работы.
+Этот параметр обычно считают самым важным. Оценивают худшее время алгоритма, среднее и лучшее. Лучшее время - минимальное время работы алгоритма на каком-либо наборе, обычно этим набором является тривиальный. Худшее время - наибольшее время.  
+
+Память.
+Параметр сортировки, показывающий, сколько дополнительной памяти требуется алгоритму. Сюда входят и дополнительный массив, и переменные, и затраты на стек вызовов.
+
+Устойчивость.
+Устойчивой сортировкой называется сортировка, не меняющая порядка объектов с одинаковыми ключами. Ключ - признак, по которому мы производим сортировку.
+
+Мы же рассмотрим поразрядную сортировку для целых чисел, причем как с реализацией в последовательном виде , так и в параллельном виде с помощью MPI. В общем случае реализации данной сортировки:
+
+\begin{center}
+время работы - $O(n*\lg(n))$;\\
+память - $O(n)$;\\
+устойчивость - да;
+\end{center}
+
+\newpage
+
+% Постановка задачи %
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+\par Разработать параллельное приложение, использую MPI,  для сортировки массива целых чисел, применяя поразрядный метод сортировки, причем учитывая все тонкости реализации параллельных алгоритмов.
+Провести тестирование работоспособности приложения.
+\newpage
+
+% Описание алгоритма %
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Описание последовательного алгоритма поразрядной сортировки.
+
+\par Сравнение производится поразрядно: сначала сравниваются значения одного крайнего разряда, и элементы группируются по результатам этого сравнения, затем сравниваются значения следующего разряда, соседнего, и элементы либо упорядочиваются по результатам сравнения значений этого разряда внутри образованных на предыдущем проходе групп, либо переупорядочиваются в целом, но сохраняя относительный порядок, достигнутый при предыдущей сортировке. Затем аналогично делается для следующего разряда, и так до конца.
+Так как выравнивать сравниваемые записи относительно друг друга можно в разную сторону, на практике существуют два варианта этой сортировки. Для чисел они называются в терминах значимости разрядов числа, и получается так: можно выровнять записи чисел в сторону менее значащих цифр (по правой стороне, в сторону единиц, least significant digit, LSD) или более значащих цифр (по левой стороне, со стороны более значащих разрядов, most significant digit, MSD).
+Накапливать при каждом проходе сведения о группах можно разными способами — например в списках, в деревьях, в массивах, выписывая в них либо сами элементы, либо их индексы и т. п.
+
+\newpage
+
+Для нашей задачи была реализована LSD поразрядная сортировка с хранением групп в очередях:
+
+\begin{lstlisting}
+void sequentialRadixSort(vector<int>* vectorOfValue) {
+    v_size_t maximumRank = calculateMaximumRank(*vectorOfValue);
+
+    // Pass through ranks from 0 to maximum rank
+    for (v_size_t i = 0; i <= maximumRank; ++i) {
+        vector<queue<int>> vectorOfQueue(10);  // Vector queue ranks 0...9
+
+        // Distribution of vector elements by queues of the current rank
+        for (auto it = vectorOfValue->begin(); it != vectorOfValue->end(); ++it) {
+            vectorOfQueue[calculateValueByRank(*it, i)].push(*it);
+        }
+
+        // Permutation of vector elements by the current rank
+        int currentQueue = 0;
+        for (auto it = vectorOfValue->begin(); it != vectorOfValue->end(); ) {
+            while (!vectorOfQueue.at(currentQueue).empty()) {
+                *it = vectorOfQueue.at(currentQueue).front();
+                vectorOfQueue.at(currentQueue).pop();
+                ++it;
+            }
+            ++currentQueue;
+        }
+    }
+}
+\end{lstlisting}
+
+\par В качестве аргумента функция принимает массив целочисленных данных по указателю. Вычисляем максимальный ранг разряда в массиве переданных целочисленных значений, затем проходимся от минимального разряда до максимального , выполняя очистку массива очередей цифр, отвечающих за текущий разряд числа (их 9 , от 0 до 9). Далее выполняем проход по отсортированному на текущем шаге массиву (на первом шаге он не отсортирован), вычисляем у каждого элемента массива цифру, отвечающую за текущий разряд, и записываем текущий элемент вектора в очередь с индексом равным текущий цифре разряда. Далее инициализируем переменную отвечающую за текущую не пустую очередь, выполняем проход по массиву и на каждом шаге присваиваем значение , взятое из очереди , начиная с очереди , которая отвечает за нулевой разряд, выполняем заполнение массива упорядоченными элементами текущего разряда, до пустоты последней очереди. После всех проходов будет отсортированный массив целочисленных значений от меньшего к большему.
+
+\newpage
+
+Описание параллельного алгоритма поразрядной сортировки:
+
+\par Данные исходного массива, который необходимо отсортировать разделяются между процессами поровну, также необходимо учесть возможность равного разделения данных, затем необходимо эти данные разослать. Далее каждый процесс выполняет сортировку своих порций данных, потом эти отсортированные данные необходимо собрать на главном процессе(держателе данных), но это нужно сделать особым образом, так как порции данных уже отсортированы можно использовать простое слияние, то есть сравнивать элементы двух отсортированных порций и добавлять наименьший из сравнения первым в новый отсортированный массив, очевидно что место , занимаемое массивом слияние равно сумме размерности двух сливаемых массивов.
+
+\newpage
+
+Реализация параллельного алгоритма поразрядной сортировки с использованием MPI:
+
+\begin{lstlisting}
+vector<int> parallelRadixSort(const vector<int>& vectorOfValue, const v_size_t vectorSize) {
+    int numberOfProcess, currentRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numberOfProcess);
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    int dataPackage = vectorSize / numberOfProcess;
+    int dataExcess = vectorSize % numberOfProcess;
+    vector<int> localVector, globalVector;
+
+    localVector.resize(dataPackage);
+
+    MPI_Scatter(vectorOfValue.data(), dataPackage, MPI_INT, localVector.data(),
+                                      dataPackage, MPI_INT, 0, MPI_COMM_WORLD);
+    sequentialRadixSort(&localVector);
+
+    if (currentRank != 0) {
+        MPI_Send(localVector.data(), dataPackage, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    } else {
+        globalVector = localVector;
+
+        for (int i = 1; i < numberOfProcess; ++i) {
+            MPI_Recv(localVector.data(), dataPackage, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+            globalVector = simpleMerge(globalVector, localVector);
+        }
+
+        if (dataExcess) {
+            localVector = vector<int>(vectorOfValue.end() - dataExcess, vectorOfValue.end());
+            sequentialRadixSort(&localVector);
+            globalVector = simpleMerge(globalVector, localVector);
+        }
+    }
+
+    return globalVector;
+}
+\end{lstlisting}
+
+\par В качестве аргументов функция принимает константную ссылку на массив целочисленных данных и размер массива. Объявляем переменные, отвечающие за количество запущенных процессов на данной функции и текущий процесс, вызываем локальные функции для получения количества процессов и текущего процесса, передавая им необходимые переменные. Вычисляем количество данных, которые могут распределится на каждый процесс, за общее количество данных берем размер вектора, затем считаем данные неразделившиеся между процессами. Объявляем локальный вектор, для приема и сортировки пакета данных каждым процессом, и глобальный вектор, который отвечает за итоговый отсортированный вектор. В локальном векторе перевыделяем память под пакет данных, отправляем данные по процессам с помощью функции Scatter, которая распределит вектор-аргумент между всеми процессами с шагом в пакет данных элементов. Далее каждый процесс сортирует свой пакет данных, после чего все кроме нулевого (главного) процесса отправят отсортированные данные на этот главный процесс. На нулевом же процессе глобальному вектору присваиваем локальный вектор для дальнейшего слияние, в цикле принимаем отсортированные пакеты данных от всех процессов, и выполняем слияние глобального вектора с принятыми данными, затем если переменная, отвечающая за данные неразделившиеся между процессами, не равна нулю, то локальному вектору присваиваем оставшуюся часть не отсортированных данных с конца вектора-аргумента, выполняем сортировку этих данных, после чего выполняем слияние глобального вектора с этими отсортированными данными. Возвращаем глобальный вектор.
+
+\newpage
+
+% Результаты %
+\section*{Результаты}
+\addcontentsline{toc}{section}{Результаты}
+Оценим основные параметры работы последовательного алгоритма поразрядной сортировки и параллельного алгоритма поразрядной сортировки с простым слиянием.
+
+Последовательный алгоритм:
+\par По времени мы тратим i проходов на каждый разряд, внутри ещё n проходов по всему массиву плюс q количество очередей цифр, затем ещё n , так как необходимо заполнить массив значениями очередей.
+Получаем i*(n+q+n), то есть 2in+iq, отбросив константы и незначительно влияющие величины, получим O(n).
+Затраты по памяти равны 2n, так как в один момент времени мы храним два массива одинаковой размерности с разным уровнем разрядной сортированности, память на обеспечение структуры данных вектор и очередь считаем несущественными, отбросив константу получим O(n).
+Алгоритм устойчивый, так как равные по значению элементы во время сортировки не меняются позициями в массиве. Где n - количество элементов массива.
+
+\begin{center}
+Итоги последовательного алгоритма: \\
+Время работы - O(n); \\
+Память - O(n); \\
+Устойчивость - да;
+\end{center}
+
+\newpage
+
+Параллельный алгоритм:
+\par С точки зрения использования последовательного алгоритма поразрядной сортировки ничего не изменилось, для оценки основных параметров в этом алгоритме необходимо оценить простое слияние.
+По времени необходимо провести n сравнений и n добавлений в сливаемый массив, выходит n+n, то есть 2n, константу отбрасываем и получаем O(n).
+Затраты по памяти равны n элементов на первый сливаемый массив, n элементов на второй сливаемый массив, мы расширяем первый массив на n элементов для сливания со вторым и получаем n + 2n, то есть 3n, отбросив константу получим O(n).
+Алгоритм устойчивый, так как равные по значению элементы во время сортировки не меняются позициями в массиве. Где n - количество элементов массива.
+
+\begin{center}
+Итог простого слияния: \\
+Время работы - O(n); \\
+Память - O(n); \\
+Устойчивость - да;
+\end{center}
+
+\vspace{4em}
+
+\par Параллельный алгоритм запущенный на m процессах для n элементного массива затратит m*n/m времени для поразрядной сортировки и m*n/m для простого слияния.
+
+\begin{center}
+Итог параллельного алгоритма: \\
+Время работы - O(n); \\
+Память - O(n); \\
+Устойчивость - да;
+\end{center}
+
+\newpage
+
+\begin{itemize}
+\item Процессор: AMD Ryzen 5 4600H, 3.0 ГГц (4.0 ГГц, в режиме Turbo), количество ядер: 6;
+\item Оперативная память: 8 ГБ (DDR4), 3200 МГц;
+\item Операционная система: Windows 10 Home.
+\end{itemize}
+
+\par Эксперименты проводились на 6 процессах, так как с архитектурной точки зрения это является наиболее выигрышным решением, в тестах исходные массивы были различной длины, также их значения рандомизировались. (см. Таблицу 1).
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{| p{2cm} | p{3cm} | p{4cm} | p{2cm} |}
+\hline
+Количество элементов в массиве & Время работы последовательного алгоритма (в микросекундах) & Время работы параллельного алгоритма (в микросекундах)  \\[5pt]
+\hline
+1000          & 2        & 1     \\
+10000         & 20        & 4      \\
+100000        & 200        & 50      \\
+1000000       & 2000        & 540       \\
+5000000       & 10300        & 2300        \\
+10000000       & 22500        & 5200        \\
+\hline
+\end{tabular}
+\end{table}
+
+\par В таблице наглядно продемонстрировано преимущество параллельного алгоритма над последовательным, причем время выполнение парралельного алгоритма занимает в среднем в 4 раза меньше времени.
+Если учитывать вышеописанные оценки и влияние MPI на результат, получаются правдоподобные тесты.
+
+\newpage
+
+% Заключение %
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В ходе лабораторной работы было реализовано параллельное приложение, с использованием MPI, для сортировки массива целых чисел, применяя поразрядный метод сортировки. Также была проведена оценка алгоритмов и их тестирование.
+\newpage
+
+% Литература %
+\section*{Литература}
+\addcontentsline{toc}{section}{Литература}
+\begin{enumerate}
+\item Документация по MPI. URL: \url{https://www.opennet.ru/docs/RUS/MPI_intro/}
+\item Роберт Лафоре. Объектно-ориентированное программирование в С++ , ISBN 978-5-496-00353-7 
+\item Документация по С++, URL: \url{https://prog-cpp.ru/cpp/}
+\item Теоретические и практические статьи по С++, URL:\url{ https://habr.com/}
+\end{enumerate} 
+\newpage
+
+% Приложение %
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+\begin{center}
+    radix\_sort\_with\_simple\_merge.h
+\end{center}
+\begin{lstlisting}
+// Copyright 2021 Chornyi Yurii
+#ifndef MODULES_TASK_3_CHORNYI_Y_RADIX_SORT_WITH_SIMPLE_MERGE_RADIX_SORT_WITH_SIMPLE_MERGE_H_
+#define MODULES_TASK_3_CHORNYI_Y_RADIX_SORT_WITH_SIMPLE_MERGE_RADIX_SORT_WITH_SIMPLE_MERGE_H_
+
+#include <vector>
+
+using std::vector;
+typedef vector<int>::size_type v_size_t;
+
+void generateRandomVector(vector<int>* vectorOfValue, v_size_t vectorSize);
+
+void sequentialRadixSort(vector<int>* vectorOfValue);
+vector<int> parallelRadixSort(const vector<int>& vectorOfValue, const v_size_t vectorSize);
+
+#endif  // MODULES_TASK_3_CHORNYI_Y_RADIX_SORT_WITH_SIMPLE_MERGE_RADIX_SORT_WITH_SIMPLE_MERGE_H_
+
+\end{lstlisting}
+\begin{center}
+    radix\_sort\_with\_simple\_merge.cpp
+\end{center}
+\begin{lstlisting}
+// Copyright 2021 Chornyi Yurii
+#include <mpi.h>
+#include <random>
+#include <algorithm>
+#include <cmath>
+#include <vector>
+#include <queue>
+#include "../../../modules/task_3/chornyi_y_radix_sort_with_simple_merge/radix_sort_with_simple_merge.h"
+
+using std::vector;
+using std::queue;
+typedef vector<int>::size_type v_size_t;
+
+v_size_t calculateMaximumRank(const vector<int>& vectorOfValue) {
+    int maximumElement = *std::max_element(vectorOfValue.begin(), vectorOfValue.end());
+    v_size_t rank = 0;
+
+    while (maximumElement > 9) {
+        maximumElement /= 10;
+        ++rank;
+    }
+
+    return rank;
+}
+int calculateValueByRank(int value, v_size_t rank) {
+    while (value && rank) {
+        value /= 10;
+        --rank;
+    }
+    value = value % 10;
+
+    return value;
+}
+vector<int> simpleMerge(const vector<int>& firstVector, const vector<int>& secondVector) {
+    vector<int> resultVector(firstVector.size() + secondVector.size());
+
+    v_size_t firstIt, secondIt, resutIt;
+    firstIt = secondIt = resutIt = 0;
+
+    while (firstIt < firstVector.size() && secondIt < secondVector.size()) {
+        if (firstVector[firstIt] < secondVector[secondIt]) {
+            resultVector[resutIt++] = firstVector[firstIt++];
+        } else {
+            resultVector[resutIt++] = secondVector[secondIt++];
+        }
+    }
+
+    while (firstIt < firstVector.size()) {
+        resultVector[resutIt++] = firstVector[firstIt++];
+    }
+    while (secondIt < secondVector.size()) {
+        resultVector[resutIt++] = secondVector[secondIt++];
+    }
+
+    return resultVector;
+}
+
+void generateRandomVector(vector<int>* vectorOfValue, v_size_t vectorSize) {
+    std::random_device dev;
+    std::mt19937 gen(dev());
+
+    vectorOfValue->resize(vectorSize);
+    for (v_size_t i = 0; i < vectorSize; ++i) {
+        vectorOfValue->at(i) = gen() % 10000;
+    }
+}
+
+void sequentialRadixSort(vector<int>* vectorOfValue) {
+    v_size_t maximumRank = calculateMaximumRank(*vectorOfValue);
+
+    // Pass through ranks from 0 to maximum rank
+    for (v_size_t i = 0; i <= maximumRank; ++i) {
+        vector<queue<int>> vectorOfQueue(10);  // Vector queue ranks 0...9
+
+        // Distribution of vector elements by queues of the current rank
+        for (auto it = vectorOfValue->begin(); it != vectorOfValue->end(); ++it) {
+            vectorOfQueue[calculateValueByRank(*it, i)].push(*it);
+        }
+
+        // Permutation of vector elements by the current rank
+        int currentQueue = 0;
+        for (auto it = vectorOfValue->begin(); it != vectorOfValue->end(); ) {
+            while (!vectorOfQueue.at(currentQueue).empty()) {
+                *it = vectorOfQueue.at(currentQueue).front();
+                vectorOfQueue.at(currentQueue).pop();
+                ++it;
+            }
+            ++currentQueue;
+        }
+    }
+}
+vector<int> parallelRadixSort(const vector<int>& vectorOfValue, const v_size_t vectorSize) {
+    int numberOfProcess, currentRank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numberOfProcess);
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    int dataPackage = vectorSize / numberOfProcess;
+    int dataExcess = vectorSize % numberOfProcess;
+    vector<int> localVector, globalVector;
+
+    localVector.resize(dataPackage);
+
+    MPI_Scatter(vectorOfValue.data(), dataPackage, MPI_INT, localVector.data(),
+                                      dataPackage, MPI_INT, 0, MPI_COMM_WORLD);
+    sequentialRadixSort(&localVector);
+
+    if (currentRank != 0) {
+        MPI_Send(localVector.data(), dataPackage, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    } else {
+        globalVector = localVector;
+
+        for (int i = 1; i < numberOfProcess; ++i) {
+            MPI_Recv(localVector.data(), dataPackage, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+            globalVector = simpleMerge(globalVector, localVector);
+        }
+
+        if (dataExcess) {
+            localVector = vector<int>(vectorOfValue.end() - dataExcess, vectorOfValue.end());
+            sequentialRadixSort(&localVector);
+            globalVector = simpleMerge(globalVector, localVector);
+        }
+    }
+
+    return globalVector;
+}
+
+\end{lstlisting}
+\begin{center}
+    main.cpp
+\end{center}
+\begin{lstlisting}
+// Copyright 2021 Chornyi Yurii
+#include <gtest/gtest.h>
+#include <vector>
+#include "./radix_sort_with_simple_merge.h"
+#include <gtest-mpi-listener.hpp>
+
+TEST(Parallel_Redix_Sort, Size_Vector_100) {
+    // Arrange
+    int currentRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    vector<int> globalVector;
+    const v_size_t vectorSize = 100;
+    vector<int> parallelSortedVector, sequentialSortedVector;
+
+    // Act
+    if (currentRank == 0) {
+        generateRandomVector(&globalVector, vectorSize);
+        sequentialSortedVector = globalVector;
+        sequentialRadixSort(&sequentialSortedVector);
+    }
+
+    parallelSortedVector = parallelRadixSort(globalVector, vectorSize);
+
+    // Assert
+    if (currentRank == 0) {
+        ASSERT_EQ(parallelSortedVector, sequentialSortedVector);
+    }
+}
+
+TEST(Parallel_Redix_Sort, Size_Vector_200) {
+    // Arrange
+    int currentRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    vector<int> globalVector;
+    const v_size_t vectorSize = 200;
+    vector<int> parallelSortedVector, sequentialSortedVector;
+
+    // Act
+    if (currentRank == 0) {
+        generateRandomVector(&globalVector, vectorSize);
+        sequentialSortedVector = globalVector;
+        sequentialRadixSort(&sequentialSortedVector);
+    }
+
+    parallelSortedVector = parallelRadixSort(globalVector, vectorSize);
+
+    // Assert
+    if (currentRank == 0) {
+        ASSERT_EQ(parallelSortedVector, sequentialSortedVector);
+    }
+}
+
+TEST(Parallel_Redix_Sort, Size_Vector_300) {
+    // Arrange
+    int currentRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    vector<int> globalVector;
+    const v_size_t vectorSize = 300;
+    vector<int> parallelSortedVector, sequentialSortedVector;
+
+    // Act
+    if (currentRank == 0) {
+        generateRandomVector(&globalVector, vectorSize);
+        sequentialSortedVector = globalVector;
+        sequentialRadixSort(&sequentialSortedVector);
+    }
+
+    parallelSortedVector = parallelRadixSort(globalVector, vectorSize);
+
+    // Assert
+    if (currentRank == 0) {
+        ASSERT_EQ(parallelSortedVector, sequentialSortedVector);
+    }
+}
+
+TEST(Parallel_Redix_Sort, Size_Vector_400) {
+    // Arrange
+    int currentRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    vector<int> globalVector;
+    const v_size_t vectorSize = 400;
+    vector<int> parallelSortedVector, sequentialSortedVector;
+
+    // Act
+    if (currentRank == 0) {
+        generateRandomVector(&globalVector, vectorSize);
+        sequentialSortedVector = globalVector;
+        sequentialRadixSort(&sequentialSortedVector);
+    }
+
+    parallelSortedVector = parallelRadixSort(globalVector, vectorSize);
+
+    // Assert
+    if (currentRank == 0) {
+        ASSERT_EQ(parallelSortedVector, sequentialSortedVector);
+    }
+}
+
+TEST(Parallel_Redix_Sort, Size_Vector_500) {
+    // Arrange
+    int currentRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &currentRank);
+
+    vector<int> globalVector;
+    const v_size_t vectorSize = 500;
+    vector<int> parallelSortedVector, sequentialSortedVector;
+
+    // Act
+    if (currentRank == 0) {
+        generateRandomVector(&globalVector, vectorSize);
+        sequentialSortedVector = globalVector;
+        sequentialRadixSort(&sequentialSortedVector);
+    }
+
+    parallelSortedVector = parallelRadixSort(globalVector, vectorSize);
+
+    // Assert
+    if (currentRank == 0) {
+        ASSERT_EQ(parallelSortedVector, sequentialSortedVector);
+    }
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    MPI_Init(&argc, &argv);
+
+    ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+    ::testing::TestEventListeners& listeners =
+        ::testing::UnitTest::GetInstance()->listeners();
+
+    listeners.Release(listeners.default_result_printer());
+    listeners.Release(listeners.default_xml_generator());
+
+    listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+    return RUN_ALL_TESTS();
+}
+
+\end{lstlisting}
+
+\end{document}
