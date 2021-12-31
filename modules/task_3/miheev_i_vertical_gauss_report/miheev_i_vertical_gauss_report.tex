@@ -1,0 +1,428 @@
+\documentclass{report}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{luainputenc}
+\usepackage[english, russian]{babel}
+\usepackage[pdftex]{hyperref}
+\usepackage[14pt]{extsizes}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{amsmath}
+
+\geometry{a4paper,top=2cm,bottom=3cm,left=2cm,right=1.5cm}
+\setlength{\parskip}{0.5cm}
+\setlist{nolistsep, itemsep=0.3cm,parsep=0pt}
+
+\lstset{language=C++,
+		basicstyle=\footnotesize,
+		keywordstyle=\color{blue}\ttfamily,
+		stringstyle=\color{red}\ttfamily,
+		commentstyle=\color{green}\ttfamily,
+		morecomment=[l][\color{magenta}]{\#}, 
+		tabsize=4,
+		breaklines=true,
+  		breakatwhitespace=true,
+  		title=\lstname,       
+}
+
+\makeatletter
+\renewcommand\@biblabel[1]{#1.\hfil}
+\makeatother
+
+\begin{document}
+
+\begin{titlepage}
+
+\begin{center}
+Министерство науки и высшего образования Российской Федерации
+\end{center}
+
+\begin{center}
+Федеральное государственное автономное образовательное учреждение высшего образования \\
+Национальный исследовательский Нижегородский государственный университет им. Н.И. Лобачевского
+\end{center}
+
+\begin{center}
+Институт информационных технологий, математики и механики
+\end{center}
+
+\vspace{4em}
+
+\begin{center}
+\textbf{\Large Отчет по лабораторной работе} \\
+\end{center}
+\begin{center}
+\textbf{\Large «Линейная фильтрация изображений (вертикальное разбиение). Ядро Гаусса 3x3»} \\
+\end{center}
+
+\vspace{4em}
+
+\newbox{\lbox}
+\savebox{\lbox}{\hbox{text}}
+\newlength{\maxl}
+\setlength{\maxl}{\wd\lbox}
+\hfill\parbox{7cm}{
+\hspace*{5cm}\hspace*{-5cm}\textbf{Выполнил:} \\ студент группы 381906-3 \\ Михеев И. А.\\
+\\
+\hspace*{5cm}\hspace*{-5cm}\textbf{Проверил:}\\ доцент кафедры МОСТ, \\ кандидат технических наук \\ Сысоев А. В.\\
+}
+\vspace{\fill}
+
+\begin{center} Нижний Новгород \\ 2021 \end{center}
+
+\end{titlepage}
+
+\setcounter{page}{2}
+
+% Содержание
+\tableofcontents
+\newpage
+
+% Введение
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Размытие изображений часто применяется для выделения общих черт объектов при распознавании образов, создания различных постэффектов в компьютерных играх, сокрытия конфиденциальной информации, уменьшения шума и т.д. Существует несколько способов размытия изображений, самым распространенным из которых является размытие Гаусса. Данный способ основан на использовании функции Гаусса, которая совпадает с функцией плотности вероятности нормального распределения. Данная функция используется для построения ядра свертки, которое применяется к каждому пикселю изображения для его размытия. \par
+В данной лабораторной работе будет рассмотрена линейная фильтрация изображения с применением ядра Гаусса размером 3х3. Особенностью данной реализации будет то, что фильтр будет применяться по столбцам изображения. В программе реализованы как последовательная, так и параллельная версии линейной фильтрации, что позволит сравнить эффективность методов.
+\newpage
+
+% Постановка задачи
+\section*{Постановка задачи}
+\addcontentsline{toc}{section}{Постановка задачи}
+Для успешного выполнения лабораторной работы необходимо реализовать последовательную и параллельную реализации линейной фильтрации изображения с ядром Гаусса 3х3 с проходом по столбцам, проверить корректность работы алгоритмов, провести эксперименты для оценки эффективности параллельной реализации. По полученным результатам сделать выводы. \par 
+Для реализации параллельной версии программы используется библиотека межпроцессорного взаимодействия MPI. Для проверки корректности работы алгоритмов требуется использовать Google C++ Testing Framework.
+\newpage
+
+% Описание алгоритма
+\section*{Описание алгоритма}
+\addcontentsline{toc}{section}{Описание алгоритма}
+Для того, чтобы применить размытие Гаусса к изображению, необходимо: \par
+\begin{itemize}
+\item Рассчитать весовые коэффициенты ядра свёртки.
+\item Применить матрицу  размером 3x3  свертки для пикселя изображения и области вокруг него, для этого значение каждого пикселя из этой области умножается на значение из соответствующей ячейки в ядре.
+\item Полученный результат нормируется.
+\item Новое значение пикселя численно равно линейной комбинации значений яркости пикселов в окне фильтрации с коэффициентами матрицы весов фильтра.
+\item Повторить предыдущие действия для каждого пикселя изображения.
+\end{itemize}
+\par Возможны несколько вариантов свертки на границах изображения, но в данной лабораторной работе граничные пиксели в матрице свертки не учитывались.
+\newpage
+
+% Схема распараллеливания
+\section*{Схема распараллеливания}
+\addcontentsline{toc}{section}{Схема распараллеливания}
+\par Для эффективного распараллеливания алгоритма линейной фильтрации необходимо передать каждому процесу равное количество столбцов изображения, которые он должен обработать, а также по одному столбцу справа и слева от них. Корневой процесс рассылает одинаковое количество столбцов всем процессам (рассылаемые области пересекаются, т.к. нужно отправлять еще и граничные с областью обработки элементы), при этом сам корневой процесс так же учавствует в обработке, дополнительно принимая остаток столбцов. Каждый процесс создает ядро Гаусса и с помощью него проводит свертку на своей части изображения. Корневой процесс собирает результаты фильтрации и создает из одно изображение. Полученное изображение является результатом работы программы.
+\newpage
+
+% Описание программной реализации
+\section*{Описание программной реализации}
+\addcontentsline{toc}{section}{Описание программной реализации}
+
+Алгоритм расчета коэффициентов ядра посредством функции Гаусса:
+\begin{lstlisting}
+float* getKernel()
+\end{lstlisting}
+Функция возвращает матрицу свертки в виде массива типа float.
+
+Алгоритм применяющий ядро свертки к пикселю с координатами x,y:
+\begin{lstlisting}
+float calcNewPixelColor(const int* image, int x, int y, int width, int height, const float* kernel)
+\end{lstlisting}
+Входные параметры:
+\begin{itemize}
+\item image - изображение для обработки в виде одномерного массива int
+\item x - координата пикселя по оси абсцисс
+\item y - координата пикселя по оси ординат
+\item height - высота изображения
+\item width - ширина изображения
+\item kernel - коэффициенты матрицы свертки в виде массива
+\end{itemize}
+Возвращает новое значение пикселя.
+
+Последовательная реализация размытия Гаусса:
+\begin{lstlisting}
+int* getSequentialGauss(const int* image, int width, int height)
+\end{lstlisting}
+Входные параметры:
+\begin{itemize}
+\item image - изображение для обработки в виде одномерного массива int
+\item height - высота изображения
+\item width - ширина изображения
+\end{itemize}
+Возвращает изображение после применения размытия Гаусса (последовательная реализация).
+
+Параллельная реализация размытия Гаусса:
+\begin{lstlisting}
+int* getParallelGauss(const int* image, int width, int height)
+\end{lstlisting}
+Входные параметры:
+\begin{itemize}
+\item image - изображение для обработки в виде одномерного массива int
+\item height - высота изображения
+\item width - ширина изображения
+\end{itemize}
+Возвращает изображение после применения размытия Гаусса (параллельная реализация).
+\newpage
+
+% Подтверждение корректности
+\section*{Подтверждение корректности}
+\addcontentsline{toc}{section}{Подтверждение корректности}
+Для подтверждения корректности работы программы представлен набор тестов, разработанных с использованием Google C++ Testing Framework.
+\par Набор тестов представляет собой случайные изображения разных размеров с целью проверки корректности вычислений (сравнивается изображение, полученное с помощью последовательной фильтрации, с изображением, полученным с помощью параллельной фильтрации), а также эффективность алгоритмов по отношению друг к другу (сравнивается время выполнения последовательной и параллельной реализации).
+\par Успешное прохождение всех тестов означает корректность работы программного комплекса, а разнице во времени выполнения с последовательной реализацией можно судить об эффективности параллельной реализации.
+\newpage
+
+% Результаты экспериментов
+\section*{Результаты экспериментов}
+\addcontentsline{toc}{section}{Результаты экспериментов}
+Эксперименты для оценки эффективности параллельной реализации линейной фильтрации с использованием ядра Гаусса проводились на машине со следующей конфигурацией:
+
+\begin{itemize}
+\item Процессор: Intel(R) Core(TM) i7-6700 CPU @ 3.40GHz, количество ядер: 8;
+\item Оперативная память: 8 ГБ;
+\item ОС: Microsoft Windows 10;
+\end{itemize}
+https://ru.overleaf.com/project/61cd8c1f5996084e278b40d5
+\par Для проведения экспериментов производилась фильтрация изображений размером 10000x10000. 
+\par Результаты экспериментов представлены в таблице.
+
+\begin{table}[!h]
+\caption{Результаты вычислительных экспериментов}
+\centering
+\begin{tabular}{lllll}
+Процессы & Параллельно & Последовательно & Ускорение  \\
+1        & 4.09115        & 3.812       & 0.93176     \\
+2        & 3.40964        & 3.85394     & 1.13030     \\  
+3        & 3.39951        & 3.9608      & 1.16511     \\
+4        & 2.92732        & 3.90841     & 1.33514     \\
+5        & 2.75154        & 3.83014     & 1.3922       \\
+6        & 2.42149        & 3.92431     & 1.62061     \\
+7        & 2.25451        & 3.84617     & 1.70599     \\
+8        & 1.94417        & 3.78874     & 1.9487
+\end{tabular}
+\end{table}
+
+\par По замерам времени экспериментов, подтверждено, что параллельный случай работает быстрее, чем последовательный.
+\newpage
+
+% Заключение
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В результате лабораторной работы были реализованы последовательная и параллельная реализации линейной фильтрации изображения с использованием ядра Гаусса, были разработаны успешно выполнены тесты, созданные для данного программного проекта с использованием Google C++ Testing Framework и необходимые для подтверждения корректности работы программы. Параллельная реализация оказалась эффективней последовательной, что подтверждает успешное выполнение лабораторной работы.
+\newpage
+
+% Список литературы
+\begin{thebibliography}{1}
+\addcontentsline{toc}{section}{Список литературы}
+\bibitem{parallel} Алгоритмы быстрого размытия изображений, основанные на фильтре Гаусса [Электронный ресурс] // URL: \url {https://www.cs.vsu.ru/ipmt-conf/conf/2021/works/} //
+\bibitem{Algolist} Algolist: Алгоритмы, методы, исходники [Электронный ресурс] // URL: \url {https://en.wikipedia.org/wiki/Gaussian_filter} //
+\end{thebibliography}
+\newpage
+
+% Приложение
+\section*{Приложение}
+\addcontentsline{toc}{section}{Приложение}
+
+\begin{lstlisting}
+// Copyright 2021 Miheev Ivan
+#ifndef MODULES_TASK_3_MIHEEV_I_VERTICAL_GAUSS_VERTICAL_GAUSS_H_
+#define MODULES_TASK_3_MIHEEV_I_VERTICAL_GAUSS_VERTICAL_GAUSS_H_
+int* getRandomImage(int width, int height);
+int* getSequentialGauss(const int* image, int width, int height);
+int* getParallelGauss(const int* image, int width, int height);
+
+#endif  // MODULES_TASK_3_MIHEEV_I_VERTICAL_GAUSS_VERTICAL_GAUSS_H_
+\end{lstlisting}
+
+\begin{lstlisting}
+// Copyright 2021 Miheev Ivan
+
+#include "../../../modules/task_3/miheev_i_vertical_gauss/vertical_gauss.h"
+
+#include <mpi.h>
+
+#include <ctime>
+#include <iostream>
+#include <random>
+
+int* getRandomImage(int width, int height) {
+  std::mt19937 gen(time(0));
+  std::uniform_int_distribution<> uid(0, 255);
+  int* img = new int[width * height];
+  for (int i = 0; i < width * height; i++) {
+    img[i] = uid(gen);
+  }
+  return img;
+}
+
+int clamp(int value, int max, int min) {
+  if (value > max) return max;
+  if (value < min) return min;
+  return value;
+}
+
+float* getKernel() {
+  int size = 3;
+  int len = size*size;
+
+  float* kernel = new float[len];
+  float sigma = 3.f;
+  float norm = 0;
+  int signed_radius = 1;
+
+  for (int x = -signed_radius; x <= signed_radius; x++)
+    for (int y = -signed_radius; y <= signed_radius; y++) {
+      std::size_t idx = (x + 1) * size + (y + 1);
+      kernel[idx] = std::exp(-(x * x + y * y) / (sigma * sigma));
+      norm += kernel[idx];
+    }
+  for (int i = 0; i < len; i++) {
+    kernel[i] /= norm;
+  }
+
+  return kernel;
+}
+
+float calcNewPixelColor(const int* image, int x, int y, int width, int height,
+                        const float* kernel) {
+  float returnC = 0;
+
+  for (int i = -1; i <= 1; i++) {
+    for (int j = -1; j <= 1; j++) {
+      size_t idx = (i + 1) * 3 + j + 1;
+      int pixel = image[x + j + (y + i) * width];
+      returnC += pixel * kernel[idx];
+    }
+  }
+  return clamp(returnC, 255, 0);
+}
+
+
+int* getSequentialGauss(const int* image, int width, int height) {
+  int* new_image = new int[(width - 2) * (height - 2)];
+
+  const float* kernel = getKernel();
+
+  for (int i = 1; i < height - 1; i++) {
+    for (int j = 1; j < width - 1; j++) {
+      new_image[j - 1 + (i - 1) * (width - 2)] =
+          calcNewPixelColor(image, j, i, width, height, kernel);
+    }
+  }
+  return new_image;
+}
+
+int* getParallelGauss(const int* image, int width, int height) {
+  int ProcNum, ProcRank;
+  MPI_Comm_size(MPI_COMM_WORLD, &ProcNum);
+  MPI_Comm_rank(MPI_COMM_WORLD, &ProcRank);
+
+  int delta = (width - 2) / ProcNum;
+  int rem = (width - 2) % ProcNum;
+
+  if (delta) {
+    int *counts = new int[ProcNum], *displs = new int[ProcNum];
+    for (int i = 0; i < ProcNum; i++) {
+      if (i == 0) {
+        counts[i] = delta + rem + 2;
+        displs[i] = 0;
+      } else {
+        counts[i] = delta + 2;
+        displs[i] = delta * i + rem;
+      }
+    }
+
+    int* local_matrix;
+
+    int temp = delta;
+    if (ProcRank == 0) temp += rem;
+
+    local_matrix = new int[(temp + 2) * height];
+
+    for (int i = 0; i < height; i++) {
+      MPI_Scatterv(image + i * width, counts, displs, MPI_INT,
+                   local_matrix + i * (temp + 2), temp + 2, MPI_INT, 0,
+                   MPI_COMM_WORLD);
+    }
+
+    local_matrix = getSequentialGauss(local_matrix, temp + 2, height);
+
+    int* global_matrix = nullptr;
+
+    for (int i = 0; i < ProcNum; i++) {
+      counts[i] -= 2;
+    }
+
+    if (ProcRank == 0) global_matrix = new int[(width - 2) * (height - 2)];
+
+    for (int i = 0; i < height - 2; i++) {
+      MPI_Gatherv(local_matrix + i * temp, temp, MPI_INT,
+                  global_matrix + i * (width - 2), counts, displs, MPI_INT, 0,
+                  MPI_COMM_WORLD);
+    }
+
+    return global_matrix;
+  } else {
+    if (ProcRank == 0) {
+      return getSequentialGauss(image, width, height);
+    } else {
+      return nullptr;
+    }
+  }
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+// Copyright 2021 Miheev Ivan
+#include <gtest/gtest.h>
+
+#include <gtest-mpi-listener.hpp>
+#include "./vertical_gauss.h"
+
+TEST(Vertical_Gauss_MPI, Test_width_priority_2) {
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  int* image = nullptr;
+  const int width = 10000, height = 10000;
+
+  if (rank == 0) {
+    image = getRandomImage(width, height);
+  }
+  double start = MPI_Wtime();
+  int* new_image_parallel = getParallelGauss(image, width, height);
+  double end = MPI_Wtime();
+
+  if (rank == 0) {
+    double time1 = end - start;
+    start = MPI_Wtime();
+    int* reference_new_image = getSequentialGauss(image, width, height);
+    end = MPI_Wtime();
+    double time2 = end - start;
+    std::cout << time1 << " " << time2 << " " << time2 / time1 << std::endl;
+    for (int i = 0; i < (width - 2) * (height - 2); i += (width - 2)) {
+      ASSERT_EQ(new_image_parallel[i], reference_new_image[i]);
+    }
+  }
+}
+
+// Main
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  MPI_Init(&argc, &argv);
+
+  ::testing::AddGlobalTestEnvironment(new GTestMPIListener::MPIEnvironment);
+  ::testing::TestEventListeners& listeners =
+      ::testing::UnitTest::GetInstance()->listeners();
+
+  listeners.Release(listeners.default_result_printer());
+  listeners.Release(listeners.default_xml_generator());
+
+  listeners.Append(new GTestMPIListener::MPIMinimalistPrinter);
+  return RUN_ALL_TESTS();
+}
+\end{lstlisting}
+\end{document}
